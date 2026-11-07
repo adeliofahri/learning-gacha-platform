@@ -76,6 +76,13 @@ function SubjectCard({ subject }: { subject: Subject }) {
   const [error, setError] = useState<string | null>(null);
   const topicForm = useForm<{ name: string }>({ defaultValues: { name: "" } });
   const renameForm = useForm<{ name: string }>({ defaultValues: { name: subject.name } });
+
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+
+  const topicRenameForm = useForm<{ name: string }>({
+    defaultValues: { name: "" },
+  });
+  
   return (
     <Card>
       <CardHeader>
@@ -106,14 +113,85 @@ function SubjectCard({ subject }: { subject: Subject }) {
         <p className="text-muted-foreground text-xs">{subject.questionCount} soal</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-2">
           {subject.topics.length === 0 ? (
-            <span className="text-muted-foreground text-sm">Belum ada topik.</span>
+            <span className="text-muted-foreground text-sm">
+              Belum ada topik.
+            </span>
           ) : (
             subject.topics.map((t) => (
-              <Badge key={t.id} variant="secondary">
-                {t.name}
-              </Badge>
+              <div key={t.id} className="flex items-center gap-1">
+                {editingTopicId === t.id ? (
+                  <form
+                    className="flex items-center gap-1"
+                    onSubmit={topicRenameForm.handleSubmit(async ({ name }) => {
+                      setError(null);
+
+                      try {
+                        await apiFetch(`/api/admin/topics/${t.id}`, {
+                          method: "PATCH",
+                          body: { name },
+                        });
+
+                        setEditingTopicId(null);
+                        topicRenameForm.reset();
+                        router.refresh();
+                      } catch (e) {
+                        setError(errorMessage(e));
+                      }
+                    })}
+                  >
+                    <Input
+                      aria-label={`Ubah nama topik ${t.name}`}
+                      className="h-8 w-36"
+                      required
+                      minLength={2}
+                      maxLength={80}
+                      {...topicRenameForm.register("name")}
+                    />
+
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="h-8"
+                      disabled={topicRenameForm.formState.isSubmitting}
+                    >
+                      Simpan
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8"
+                      onClick={() => {
+                        setEditingTopicId(null);
+                        topicRenameForm.reset();
+                      }}
+                    >
+                      Batal
+                    </Button>
+                  </form>
+                ) : (
+                  <>
+                    <Badge variant="secondary">{t.name}</Badge>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        setError(null);
+                        topicRenameForm.reset({ name: t.name });
+                        setEditingTopicId(t.id);
+                      }}
+                    >
+                      Ubah
+                    </Button>
+                  </>
+                )}
+              </div>
             ))
           )}
         </div>

@@ -19,6 +19,7 @@ type FormValues = {
   topicId: string;
   title: string;
   content: string;
+  imageUrl?: string | null;
   type: "MULTIPLE_CHOICE" | "SHORT_ANSWER";
   difficulty: Difficulty;
   bounty: number;
@@ -43,12 +44,15 @@ export function QuestionForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     defaultValues: initial ?? {
       subjectId: subjects[0]?.id ?? "",
       topicId: "",
       title: "",
       content: "",
+      imageUrl: null,
       type: "MULTIPLE_CHOICE",
       difficulty: "EASY",
       bounty: bounties.EASY,
@@ -85,6 +89,7 @@ export function QuestionForm({
           topicId: values.topicId || null,
           title: values.title,
           content: values.content,
+          imageUrl: values.imageUrl || null,
           difficulty: values.difficulty,
           bounty: Number(values.bounty),
           explanation: values.explanation || null,
@@ -173,6 +178,117 @@ export function QuestionForm({
               <p className="text-muted-foreground text-xs">
                 Teks biasa. HTML tidak dirender (aman dari XSS).
               </p>
+              <div className="space-y-2">
+                <Label htmlFor="questionImage">Gambar soal (opsional)</Label>
+
+                <input
+                  id="questionImage"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={uploading}
+                  className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    setUploadError(null);
+
+                    if (file.size > 2 * 1024 * 1024) {
+                      setUploadError("Ukuran gambar maksimal 2 MB.");
+                      e.target.value = "";
+                      return;
+                    }
+
+                    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+                      setUploadError("Format gambar harus PNG, JPEG, atau WebP.");
+                      e.target.value = "";
+                      return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append("file", file);
+
+                    try {
+                      setUploading(true);
+
+                      
+                    const response = await fetch("/api/admin/question-images", {
+                      method: "POST",
+                      body: formData,
+                      credentials: "same-origin",
+                    });
+
+                    const responseText = await response.text();
+
+                    let data: { url?: string; message?: string } = {};
+
+                    try {
+                      data = responseText ? JSON.parse(responseText) : {};
+                    } catch {
+                      throw new Error(
+                        `Server mengembalikan respons bukan JSON. HTTP ${response.status}. Respons: ${responseText.slice(0, 300) || "(kosong)"}`
+                      );
+                    }
+
+                    if (!response.ok) {
+                      throw new Error(
+                        data.message || `Upload gagal. HTTP ${response.status}`
+                      );
+                    }
+
+                    if (!data.url) {
+                      throw new Error("Upload berhasil diproses, tetapi URL gambar tidak ditemukan.");
+                    }
+
+                    form.setValue("imageUrl", data.url, {
+                      shouldDirty: true,
+                    });
+
+                    } catch (err) {
+                      setUploadError(
+                        err instanceof Error ? err.message : "Gagal mengunggah gambar."
+                      );
+                    } finally {
+                      setUploading(false);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+
+                <p className="text-muted-foreground text-xs">
+                  Format PNG, JPEG, atau WebP. Maksimal 2 MB.
+                </p>
+
+                {uploading && (
+                  <p className="text-sm text-muted-foreground">Mengunggah gambar...</p>
+                )}
+
+                {uploadError && (
+                  <Alert variant="error">{uploadError}</Alert>
+                )}
+
+                {v.imageUrl && (
+                  <div className="space-y-2">
+                    <img
+                      src={v.imageUrl}
+                      alt="Preview gambar soal"
+                      className="max-h-64 w-full rounded-lg border object-contain"
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        form.setValue("imageUrl", null, { shouldDirty: true });
+                        setUploadError(null);
+                      }}
+                    >
+                      <Trash2 /> Hapus gambar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="explanation">Pembahasan (opsional)</Label>
@@ -358,6 +474,15 @@ export function QuestionForm({
               </div>
               <CardTitle>{v.title || "(judul)"}</CardTitle>
               <p className="text-sm whitespace-pre-wrap">{v.content || "(pertanyaan)"}</p>
+              {v.imageUrl && 
+              (
+                <img
+                  src={v.imageUrl}
+                  alt="Preview gambar soal"
+                  className="max-h-64 w-full rounded-lg border object-contain"
+                />
+              )
+              }
             </CardHeader>
             <CardContent className="space-y-2">
               {v.type === "MULTIPLE_CHOICE" ? (

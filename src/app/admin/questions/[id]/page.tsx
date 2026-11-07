@@ -47,6 +47,7 @@ export default async function EditQuestionPage({ params }: { params: Promise<{ i
           topicId: q.topicId ?? "",
           title: q.title,
           content: q.content,
+          imageUrl: q.imageUrl,
           type: q.type,
           difficulty: q.difficulty,
           bounty: q.bounty,

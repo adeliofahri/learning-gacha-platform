@@ -18,6 +18,14 @@ const baseQuestion = {
   bounty: z.coerce.number().int().min(0).max(10_000).optional(),
   explanation: z.string().trim().max(5000).nullable().optional(),
   status: contentStatus.default("DRAFT"),
+  imageUrl: z
+  .string()
+  .regex(
+    /^\/uploads\/questions\/[0-9]+-[a-f0-9]{16}\.(png|jpg|webp)$/,
+    "URL gambar tidak valid",
+  )
+  .nullable()
+  .optional(),
 };
 
 export const questionSchema = z

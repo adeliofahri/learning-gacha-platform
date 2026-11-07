@@ -50,6 +50,24 @@ export async function saveCharacterImage(file: File, adminId: string): Promise<s
   return `/uploads/characters/${filename}`;
 }
 
+export async function saveQuestionImage(file: File, adminId: string): Promise<string> {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const ext = validateImage(file, bytes);
+  const filename = `${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
+
+  await prisma.uploadedImage.create({
+    data: {
+      filename,
+      mimeType: file.type,
+      size: bytes.length,
+      data: bytes,
+      createdById: adminId,
+    },
+  });
+
+  return `/uploads/questions/${filename}`;
+}
+
 export async function getUploadedImage(filename: string) {
   if (!UPLOAD_NAME_RE.test(filename)) return null;
   return prisma.uploadedImage.findUnique({

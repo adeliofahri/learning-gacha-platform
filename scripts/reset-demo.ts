@@ -5,7 +5,7 @@ const DEMO_STUDENTS = [
   {
     email: "siswa1@demo.local",
     username: "siswa_demo1",
-    coins: 3000,
+    coins: 300,
     characters: [
       "pip-pensil",
       "kiko-kompas",
@@ -17,7 +17,7 @@ const DEMO_STUDENTS = [
   {
     email: "siswa2@demo.local",
     username: "siswa_demo2",
-    coins: 1500,
+    coins: 150,
     characters: [
       "lumi-kertas",
       "rara-rumus",

@@ -198,6 +198,7 @@ model Question {
   topic       Topic?        @relation(fields: [topicId], references: [id], onDelete: SetNull)
   title       String
   content     String
+  imageUrl    String?
   type        QuestionType
   difficulty  Difficulty
   bounty      Int

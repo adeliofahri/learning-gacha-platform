@@ -79,7 +79,20 @@ export function QuestionCard({
             Bounty <CoinAmount value={question.bounty} />
           </span>
         </div>
+        
         <h2 className="text-lg font-bold">{question.title}</h2>
+
+        {question.imageUrl && (
+          <div className="my-3 overflow-hidden rounded-lg border">
+            <img
+              src={question.imageUrl}
+              alt={`Gambar untuk soal ${question.order}`}
+              className="h-auto max-h-[500px] w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        )}
+
         {/* Konten dirender sebagai teks (React meng-escape HTML) → aman dari XSS */}
         <p className="whitespace-pre-wrap">{question.content}</p>
       </CardHeader>

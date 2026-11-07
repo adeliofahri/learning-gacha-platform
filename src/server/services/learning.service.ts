@@ -52,6 +52,46 @@ export async function createSubject(adminId: string, name: string) {
   }
 }
 
+
+export async function renameTopic(adminId: string, id: string, name: string) {
+  try {
+    return await transaction(async (tx) => {
+      const existing = await tx.topic.findUnique({
+        where: { id },
+      });
+
+      if (!existing) throw notFound("Topik");
+
+      const topic = await tx.topic.update({
+        where: { id },
+        data: { name },
+      });
+
+      await logAudit(tx, {
+        actorId: adminId,
+        action: "TOPIC_UPDATE",
+        targetType: "Topic",
+        targetId: id,
+        metadata: {
+          oldName: existing.name,
+          newName: name,
+          subjectId: existing.subjectId,
+        },
+      });
+
+      return topic;
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      throw new AppError(
+        "CONFLICT",
+        "Topik sudah ada pada mata pelajaran ini",
+      );
+    }
+    throw e;
+  }
+}
+
 export async function renameSubject(adminId: string, id: string, name: string) {
   try {
     return await transaction(async (tx) => {
@@ -112,6 +152,7 @@ export async function createQuestion(adminId: string, input: QuestionInput) {
     const bounty = input.bounty ?? defaultBounty(input.difficulty, await getDifficultyConfig(tx));
     const q = await tx.question.create({
       data: {
+        imageUrl: input.imageUrl ?? null,
         subjectId: input.subjectId,
         topicId: input.topicId ?? null,
         title: input.title,
@@ -177,6 +218,7 @@ export async function updateQuestion(adminId: string, id: string, input: Questio
         topicId: input.topicId ?? null,
         title: input.title,
         content: input.content,
+        imageUrl: input.imageUrl === undefined ? existing.imageUrl : input.imageUrl,
         type: input.type,
         difficulty: input.difficulty,
         bounty,
@@ -397,6 +439,7 @@ export async function listPackagesForStudent(
 }
 
 export type StudentQuestionView = {
+  imageUrl: string | null;
   id: string;
   order: number;
   title: string;
@@ -452,6 +495,7 @@ export async function getPackageForStudent(userId: string, packageId: string) {
       id: q.id,
       order: index + 1,
       title: q.title,
+      imageUrl: q.imageUrl,
       content: q.content,
       type: q.type,
       difficulty: q.difficulty,
