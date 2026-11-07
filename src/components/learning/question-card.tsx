@@ -79,7 +79,7 @@ export function QuestionCard({
             Bounty <CoinAmount value={question.bounty} />
           </span>
         </div>
-        
+
         <h2 className="text-lg font-bold">{question.title}</h2>
 
         {question.imageUrl && (
