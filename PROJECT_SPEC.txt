@@ -1,0 +1,923 @@
+MASTER BUILD SPECIFICATION
+LEARNING GACHA PLATFORM
+Panduan dan prompt implementasi untuk Claude Code
+
+VERSI: 1.0
+BAHASA: Indonesia
+TUJUAN: Meminta Claude Code membangun aplikasi full-stack yang benar-benar dapat dijalankan, bukan sekadar mockup atau contoh kode.
+
+============================================================
+A. CARA MENGGUNAKAN DOKUMEN INI
+============================================================
+
+1. Buat folder proyek kosong, misalnya: learning-gacha-platform.
+2. Buka folder tersebut menggunakan Claude Code.
+3. Simpan dokumen ini sebagai PROJECT_SPEC.txt di root proyek.
+4. Berikan instruksi utama pada bagian "PROMPT UTAMA UNTUK CLAUDE" kepada Claude Code.
+5. Minta Claude membaca seluruh PROJECT_SPEC.txt sebelum menulis kode.
+6. Jangan meminta Claude membuat semua kode dalam satu jawaban chat. Minta Claude bekerja langsung pada filesystem, membuat file, menjalankan perintah, menguji, memperbaiki error, dan memperbarui dokumentasi.
+7. Setelah setiap fase selesai, periksa ringkasan file, hasil tes, dan keputusan yang dibuat.
+
+PENTING:
+- Jangan mengisi credential sungguhan ke source code.
+- Jangan menggunakan uang sungguhan atau pembayaran uang asli untuk gacha.
+- Semua koin dan shard adalah mata uang virtual internal.
+- Jangan mengklaim aplikasi selesai jika build, migration, atau test belum berhasil.
+
+============================================================
+B. PROMPT UTAMA UNTUK CLAUDE
+============================================================
+
+Salin seluruh bagian ini ke Claude Code:
+
+---
+Kamu bertindak sebagai senior full-stack engineer, software architect, database designer, UI/UX engineer, dan QA engineer.
+
+Bangun sebuah aplikasi web full-stack bernama "Learning Gacha Platform". Aplikasi ini ditujukan untuk memotivasi siswa belajar melalui pengerjaan soal, reward berupa koin virtual, koleksi karakter, gacha virtual, dan leaderboard.
+
+BACA SELURUH PROJECT_SPEC.txt TERLEBIH DAHULU. Dokumen ini adalah sumber requirement utama. Jangan mengabaikan aturan bisnis di dalamnya.
+
+CARA KERJA WAJIB:
+1. Periksa isi direktori proyek terlebih dahulu.
+2. Jika direktori kosong, inisialisasi proyek dari awal.
+3. Sebelum implementasi, buat:
+   - docs/IMPLEMENTATION_PLAN.md
+   - docs/ARCHITECTURE.md
+   - docs/DATABASE_DESIGN.md
+   - docs/DECISIONS.md
+4. Setelah dokumen desain dibuat, langsung lanjutkan implementasi tanpa menunggu konfirmasi untuk keputusan yang sudah ditentukan dalam spesifikasi.
+5. Jika ada keputusan yang belum ditentukan, gunakan default aman yang ditulis dalam spesifikasi. Catat sebagai asumsi di docs/DECISIONS.md. Jangan mengarang fitur yang bertentangan dengan requirement.
+6. Implementasikan aplikasi secara bertahap. Setelah setiap fase:
+   - jalankan formatter dan linter;
+   - jalankan typecheck;
+   - jalankan test yang relevan;
+   - jalankan build jika memungkinkan;
+   - perbaiki error sebelum melanjutkan.
+7. Buat semua file langsung di filesystem. Jangan hanya menampilkan potongan kode di chat.
+8. Jangan membuat tombol atau halaman palsu. Semua fitur yang ditampilkan harus berfungsi atau diberi label jelas sebagai "belum tersedia".
+9. Jangan meninggalkan TODO untuk fungsi inti seperti autentikasi, reward, transaksi koin, gacha, inventory, atau leaderboard.
+10. Gunakan data seed DEMO yang jelas ditandai sebagai data contoh.
+11. Jangan menyimpan password dalam plaintext. Jangan mengekspos secret, password hash, email privat, atau data sensitif ke halaman publik.
+12. Jangan mempercayai nilai koin, rarity, bounty, harga, jawaban benar, atau hasil gacha dari frontend. Semua validasi dan perhitungan penting wajib dilakukan di server.
+13. Gunakan transaksi database untuk operasi ekonomi yang harus atomik.
+14. Buat README.md yang menjelaskan instalasi, konfigurasi, migrasi, seed, menjalankan development server, test, dan deployment.
+15. Jika suatu perintah gagal karena environment belum tersedia, jelaskan penyebabnya dan berikan alternatif. Jangan mengarang hasil test.
+
+Setelah semua fase selesai, berikan laporan:
+- fitur yang telah selesai;
+- struktur folder;
+- perintah untuk menjalankan aplikasi;
+- akun demo yang dibuat oleh seed (jika ada);
+- hasil lint, typecheck, test, dan build;
+- hal yang belum selesai atau memerlukan konfigurasi manual.
+
+Mulai dengan membaca spesifikasi lengkap, lalu kerjakan proyek sampai aplikasi dapat dijalankan.
+---
+
+============================================================
+C. STACK TEKNOLOGI YANG DIGUNAKAN
+============================================================
+
+Gunakan satu codebase TypeScript agar lebih mudah dikelola.
+
+Frontend dan backend:
+- Next.js App Router
+- React
+- TypeScript dengan strict mode
+- Tailwind CSS
+- shadcn/ui untuk komponen UI
+- Lucide React untuk ikon
+- React Hook Form untuk form
+- Zod untuk validasi input
+- TanStack Table untuk tabel admin jika diperlukan
+
+Backend:
+- Next.js Route Handlers dan server-side modules
+- Server Actions hanya untuk operasi yang sesuai; jangan mencampur business logic ke komponen UI
+- Service layer untuk aturan bisnis
+- Repository/data-access layer untuk query database
+- Zod untuk validasi seluruh input API
+
+Database:
+- PostgreSQL
+- Prisma ORM
+- Prisma migrations
+- Database transaction untuk operasi koin, gacha, review jawaban, dan inventory
+
+Authentication dan authorization:
+- Auth.js atau solusi autentikasi yang kompatibel dengan Next.js App Router
+- Login email dan password
+- Password hashing menggunakan Argon2id atau bcrypt dengan konfigurasi aman
+- Role-based access control: ADMIN dan STUDENT
+- Session cookie HttpOnly, Secure pada production, dan SameSite yang sesuai
+- Validasi role di server untuk setiap route admin
+
+Testing:
+- Vitest untuk unit test dan integration test
+- Playwright untuk end-to-end test alur penting
+
+Tooling:
+- pnpm sebagai package manager
+- ESLint
+- Prettier
+- Docker Compose untuk PostgreSQL lokal
+- Git dan .gitignore
+
+Jangan menambahkan Redis, microservices, WebSocket, atau game engine pada MVP. Aplikasi ini tidak memerlukan real-time multiplayer.
+
+============================================================
+D. STRUKTUR DIREKTORI YANG DIHARAPKAN
+============================================================
+
+Buat struktur yang masuk akal dan tidak berlebihan. Contoh:
+
+learning-gacha-platform/
+  docs/
+    IMPLEMENTATION_PLAN.md
+    ARCHITECTURE.md
+    DATABASE_DESIGN.md
+    DECISIONS.md
+    SECURITY.md
+  prisma/
+    schema.prisma
+    seed.ts
+    migrations/
+  public/
+    images/
+    characters/
+  src/
+    app/
+      (public)/
+        page.tsx
+        leaderboard/
+          page.tsx
+        students/
+          [username]/
+            page.tsx
+      (auth)/
+        login/
+          page.tsx
+        register/
+          page.tsx
+      (student)/
+        dashboard/
+          page.tsx
+        learn/
+          page.tsx
+        packages/
+          [packageId]/
+            page.tsx
+        gacha/
+          page.tsx
+        collection/
+          page.tsx
+        profile/
+          page.tsx
+      admin/
+        page.tsx
+        questions/
+        packages/
+        characters/
+        banners/
+        reviews/
+        users/
+        events/
+      api/
+        auth/
+        ...
+      layout.tsx
+      globals.css
+    components/
+      ui/
+      layout/
+      learning/
+      gacha/
+      leaderboard/
+      admin/
+    lib/
+      auth/
+      db/
+      validation/
+      utils/
+      constants/
+    server/
+      services/
+      repositories/
+      policies/
+    types/
+  tests/
+    unit/
+    integration/
+    e2e/
+  .env.example
+  .gitignore
+  docker-compose.yml
+  package.json
+  pnpm-lock.yaml
+  README.md
+
+Claude boleh menyesuaikan struktur jika ada alasan teknis, tetapi tetap pisahkan UI, business logic, validasi, dan akses database.
+
+============================================================
+E. ROLE DAN HAK AKSES
+============================================================
+
+1. STUDENT
+- Registrasi dan login.
+- Melihat dashboard sendiri.
+- Melihat dan mengerjakan paket soal.
+- Melihat status soal.
+- Mendapat koin setelah jawaban dinyatakan benar.
+- Melihat saldo dan riwayat transaksi.
+- Melakukan gacha dengan koin virtual.
+- Melihat inventory dan shard.
+- Memilih avatar dari karakter yang dimiliki.
+- Melihat leaderboard dan profil publik.
+- Mengubah pengaturan profil yang diizinkan.
+
+2. ADMIN
+- Mengelola soal, pilihan jawaban, variasi jawaban isian, dan pembahasan.
+- Mengelola mata pelajaran dan topik.
+- Mengelola paket soal.
+- Mengelola karakter.
+- Mengelola banner dan konfigurasi gacha.
+- Memeriksa jawaban isian.
+- Mengelola event dan bonus koin.
+- Melihat user dan transaksi.
+- Melihat audit log.
+
+Semua endpoint admin wajib memeriksa role di server. Menyembunyikan menu admin di frontend saja tidak cukup.
+
+Jangan menyediakan endpoint registrasi publik yang memungkinkan seseorang membuat akun ADMIN. Akun admin dibuat melalui seed awal atau prosedur administratif yang aman.
+
+============================================================
+F. ATURAN BISNIS: LEARNING SYSTEM
+============================================================
+
+1. Admin dapat membuat soal dengan tipe:
+   - MULTIPLE_CHOICE
+   - SHORT_ANSWER
+
+2. Setiap soal mempunyai:
+   - ID
+   - subject
+   - topic opsional
+   - title atau question content
+   - type
+   - difficulty
+   - bounty coin
+   - explanation opsional
+   - status DRAFT atau PUBLISHED
+   - created_by
+   - timestamps
+   - version
+
+3. Difficulty dan bounty dapat dikonfigurasi. Contoh seed:
+   - EASY: 5 coins
+   - MEDIUM: 10 coins
+   - HARD: 20 coins
+   - EXPERT: 35 coins
+   Nilai ini hanya konfigurasi demo dan harus dapat diubah admin.
+
+4. Pilihan ganda:
+   - Soal dapat memiliki beberapa pilihan.
+   - Tepat satu jawaban benar pada MVP.
+   - Kunci jawaban tidak boleh dikirim ke browser sebelum jawaban dinilai.
+   - Server memeriksa jawaban.
+   - Jawaban benar pertama kali memberi bounty.
+   - Jawaban salah tidak memberi bounty.
+   - Siswa boleh mencoba lagi selama soal belum solved.
+
+5. Isian:
+   - Siswa mengirim teks jawaban.
+   - Jawaban disimpan sebagai PENDING_REVIEW.
+   - Admin dapat memilih APPROVE atau REJECT.
+   - Jika APPROVE, bounty diberikan satu kali.
+   - Jika REJECT, siswa dapat mengirim percobaan baru jika soal masih aktif.
+   - Simpan reviewer, waktu review, dan feedback opsional.
+   - Jangan tampilkan jawaban acuan kepada siswa sebelum keputusan admin.
+
+6. Status soal per siswa:
+   - UNSOLVED: belum pernah dicoba.
+   - ATTEMPTED: pernah dicoba tetapi belum benar.
+   - PENDING_REVIEW: menunggu admin.
+   - SOLVED: sudah dinyatakan benar dan bounty sudah diberikan.
+
+7. Status SOLVED bersifat global per user-question, bukan per paket.
+   Jika soal yang sama terdapat pada beberapa paket, siswa hanya memperoleh bounty satu kali.
+
+8. Paket soal:
+   - Paket berisi relasi ke soal.
+   - Siswa bebas memilih paket.
+   - Siswa tidak wajib menyelesaikan seluruh soal.
+   - Progress tersimpan di database.
+   - Siswa dapat meninggalkan paket dan melanjutkannya kapan saja.
+   - Soal dapat dikerjakan ulang untuk latihan setelah solved, tetapi tidak menghasilkan bounty lagi.
+   - Progress paket dihitung dari jumlah soal unik yang berstatus SOLVED di paket tersebut.
+
+9. Perubahan soal:
+   - Jangan mengubah histori percobaan yang sudah terjadi.
+   - Simpan versi soal atau snapshot konten yang relevan ketika attempt dibuat.
+   - Jika soal sudah pernah solved, perubahan bounty tidak boleh memberikan reward tambahan.
+   - Soal yang sudah dipublikasikan dan pernah dikerjakan harus dinonaktifkan atau dibuat versi baru, bukan menghapus histori.
+
+10. Anti-duplikasi reward:
+   - Gunakan unique constraint pada user_id + question_id untuk solved record.
+   - Proses insert solved record dan pemberian bounty dalam satu database transaction.
+   - Jika request terkirim dua kali, reward hanya diberikan satu kali.
+   - Gunakan idempotency key atau mekanisme setara pada endpoint yang rawan retry.
+
+============================================================
+G. ATURAN BISNIS: WALLET DAN TRANSAKSI
+============================================================
+
+1. Setiap siswa mempunyai wallet.
+2. Currency:
+   - COIN untuk gacha.
+   - SHARD untuk sistem duplikat.
+3. Saldo tidak boleh diubah langsung dari frontend.
+4. Setiap perubahan saldo harus memiliki transaction record.
+5. Jenis transaksi minimal:
+   - QUESTION_REWARD
+   - EVENT_BONUS
+   - ADMIN_ADJUSTMENT
+   - GACHA_SPEND
+   - DUPLICATE_CONVERSION
+   - SHARD_SPEND jika shard kelak digunakan.
+6. amount harus memiliki aturan tanda yang konsisten. Rekomendasi: amount positif untuk penambahan dan negatif untuk pengurangan.
+7. Setiap transaksi menyimpan user, currency, amount, type, source/reference, timestamp, dan metadata yang tidak sensitif.
+8. Admin adjustment wajib memiliki alasan dan dicatat dalam audit log.
+9. Bonus event harus memiliki batas waktu dan aturan klaim agar tidak dapat diklaim berulang.
+10. Gunakan database transaction dan atomic update untuk mencegah saldo negatif dan race condition.
+11. Jangan pernah menerima nilai saldo baru dari request frontend.
+
+============================================================
+H. ATURAN BISNIS: CHARACTER COLLECTION
+============================================================
+
+1. Karakter memiliki:
+   - ID
+   - name
+   - description
+   - rarity 1 sampai 6
+   - image URL/path
+   - status ACTIVE atau ARCHIVED
+   - created_at
+
+2. Karakter mempunyai kategori:
+   - PERMANENT
+   - LIMITED
+
+3. Inventory:
+   - Setiap user dapat memiliki karakter unik.
+   - Simpan quantity atau dupe count.
+   - Simpan first_obtained_at dan last_obtained_at.
+   - Simpan sumber perolehan melalui gacha history.
+   - Avatar hanya boleh dipilih dari karakter yang dimiliki.
+   - Karakter yang diarsipkan tetap tampil di koleksi lama.
+
+4. Duplikat:
+   - Duplikat dikonversi menjadi Character Shards.
+   - Contoh konfigurasi demo:
+     1-star = 1 shard
+     2-star = 2 shards
+     3-star = 5 shards
+     4-star = 10 shards
+     5-star = 25 shards
+     6-star = 50 shards
+   - Nilai harus dapat dikonfigurasi.
+   - Duplikat tidak menambah skor leaderboard.
+   - Simpan riwayat konversi.
+   - Jika karakter belum dimiliki, karakter masuk inventory dan tidak dikonversi menjadi shard.
+
+5. Fitur penggunaan shard belum harus memiliki sistem upgrade pada MVP. Buat wallet dan ledger shard agar fitur lanjutan dapat ditambahkan tanpa merombak database.
+
+============================================================
+I. ATURAN BISNIS: GACHA
+============================================================
+
+1. Gacha hanya menggunakan COIN virtual yang diperoleh dari aktivitas platform atau bonus admin/event. Tidak ada pembelian uang sungguhan.
+2. Jenis pull:
+   - SINGLE: 1 hasil.
+   - TEN_PULL: 10 hasil, harga sama dengan 9 kali harga SINGLE.
+   - STEP_UP: lima tahap, hanya untuk banner limited yang mengaktifkannya.
+3. Harga contoh:
+   - SINGLE: 100 coins.
+   - TEN_PULL: 900 coins.
+   - Step-up stage 1-5: 100, 150, 200, 250, 300 coins.
+   Semua harga merupakan seed/config demo dan dapat diubah admin.
+4. Banner:
+   - PERMANENT: tidak memiliki tanggal akhir.
+   - LIMITED: memiliki starts_at dan ends_at.
+   - Banner ENDED tidak dapat digunakan untuk pull baru.
+   - Histori banner tidak boleh dihapus.
+5. Setiap banner mempunyai daftar karakter, rarity, weight/rate, dan status featured.
+6. Rate harus dikonfigurasi dan ditampilkan kepada siswa sebelum pull.
+7. Jangan mengarang peluang gacha final. Buat seed demo dengan label DEMO RATE dan dokumentasikan bahwa admin harus meninjau peluang sebelum production.
+8. Hasil gacha ditentukan di backend menggunakan secure random generator yang sesuai.
+9. Frontend tidak boleh mengirim atau memilih character_id sebagai hasil gacha.
+10. Step-up:
+    - Maksimal lima tahap.
+    - Tahap berjalan berurutan.
+    - Siswa harus membayar harga tahap yang sedang berjalan.
+    - Tahap kelima menjamin minimal satu karakter 6-star.
+    - Jaminan 6-star tidak otomatis menjamin karakter featured.
+    - Jika ingin menjamin featured, harus ada konfigurasi guarantee rule terpisah.
+    - Simpan progress step-up per user dan banner.
+    - Definisikan apakah progress reset setelah menyelesaikan tahap kelima. Default: reset ke tahap pertama setelah siklus selesai.
+    - Jika banner berakhir di tengah siklus, jangan menghilangkan histori. Untuk MVP, hentikan pull dan tampilkan status siklus berakhir; jangan menghapus hasil yang sudah didapat.
+11. Ten-pull:
+    - Satu request menghasilkan tepat 10 hasil.
+    - Total harga dikurangi sekali secara atomik.
+    - Jika gagal, seluruh transaksi rollback.
+12. Setiap pull menyimpan:
+    - user_id
+    - banner_id
+    - pull_type
+    - price
+    - hasil karakter
+    - rarity
+    - timestamp
+    - step number bila step-up
+    - idempotency key
+13. Pengurangan koin, penentuan hasil, penambahan inventory/shard, dan penyimpanan history harus berada dalam transaksi database yang konsisten.
+14. Tampilkan hasil dan rate secara transparan.
+15. Jangan menggunakan dark pattern, timer palsu, atau klaim peluang yang tidak sesuai.
+
+============================================================
+J. LEADERBOARD DAN PROFIL PUBLIK
+============================================================
+
+1. Lifetime leaderboard:
+   - Skor adalah jumlah rarity bintang dari setiap karakter unik yang dimiliki.
+   - Rumus: SUM(rarity) untuk karakter unik dengan quantity > 0.
+   - Duplikat tidak menambah skor.
+   - Skor dihitung dari inventory di server/database, bukan nilai yang dikirim browser.
+
+2. Monthly leaderboard:
+   - Skor bulanan adalah total rarity karakter unik yang pertama kali diperoleh pada bulan tersebut.
+   - Satu karakter hanya dihitung sekali per siswa dalam satu periode.
+   - Simpan tanggal perolehan pertama.
+   - Tentukan timezone aplikasi melalui konfigurasi, default Asia/Jakarta.
+   - Jangan menghapus data bulan sebelumnya.
+
+3. Tie-break:
+   - Jika skor sama, gunakan jumlah soal unik yang solved pada periode terkait.
+   - Jika masih sama, gunakan timestamp saat skor tersebut tercapai.
+   - Dokumentasikan aturan ini.
+
+4. Profil publik:
+   - Username publik.
+   - Avatar karakter jika dipilih.
+   - Total star.
+   - Koleksi karakter hanya jika siswa mengaktifkan public profile atau pengaturan visibilitas yang sesuai.
+   - Jangan tampilkan email, password hash, atau data privat.
+   - Siswa dapat mengatur is_public.
+   - Leaderboard publik sebaiknya hanya menampilkan username, avatar, dan skor.
+
+5. Avatar:
+   - Hanya dapat memilih karakter yang dimiliki.
+   - Server memverifikasi kepemilikan sebelum menyimpan avatar_character_id.
+   - Jika karakter diarsipkan, avatar tetap boleh digunakan kecuali ada alasan moderasi.
+
+============================================================
+K. ADMIN DASHBOARD
+============================================================
+
+Buat dashboard admin yang responsif dan mudah digunakan.
+
+Menu minimal:
+1. Overview:
+   - total siswa
+   - total soal published
+   - total paket
+   - total karakter
+   - jumlah attempt
+   - jumlah pending review
+   - ringkasan transaksi koin
+
+2. Question Management:
+   - list, search, filter, pagination
+   - create/edit/archive question
+   - pilihan ganda
+   - jawaban isian
+   - difficulty dan bounty
+   - preview soal
+   - explanation
+   - publish/draft
+
+3. Package Management:
+   - create/edit/archive package
+   - memasukkan dan mengurutkan soal
+   - menghindari duplikasi soal dalam paket yang sama
+
+4. Answer Review:
+   - daftar pending
+   - melihat soal dan jawaban siswa
+   - approve/reject
+   - feedback
+   - reviewer dan timestamp
+
+5. Character Management:
+   - create/edit/archive
+   - upload atau memilih image
+   - rarity
+   - permanent/limited classification
+
+6. Banner Management:
+   - create/edit/archive banner
+   - tanggal mulai/akhir
+   - daftar karakter
+   - rate/weight
+   - featured
+   - harga
+   - step-up stages
+   - preview konfigurasi
+   - validasi sebelum publish
+
+7. User Management:
+   - daftar siswa
+   - cari username
+   - status akun
+   - melihat wallet dan inventory
+   - penyesuaian koin dengan alasan dan audit log
+
+8. Event Management:
+   - membuat bonus event
+   - tanggal berlaku
+   - batas klaim
+   - aturan reward
+
+9. Audit Log:
+   - admin action
+   - target
+   - timestamp
+   - metadata yang relevan
+
+============================================================
+L. UI/UX DAN HALAMAN SISWA
+============================================================
+
+Gaya visual:
+- Modern, friendly, colorful tetapi tidak berlebihan.
+- Nuansa educational platform yang memiliki elemen fantasy collection.
+- Responsive untuk desktop, tablet, dan mobile.
+- Navigasi mudah dipahami siswa.
+- Hindari tampilan yang terlalu padat.
+- Gunakan loading, empty, error, dan success states.
+- Gunakan accessible contrast, keyboard navigation, dan label form.
+
+Halaman:
+1. Landing page:
+   - penjelasan platform
+   - cara kerja
+   - tombol login/register
+   - leaderboard ringkas
+
+2. Login/Register:
+   - validasi form
+   - error message yang jelas
+   - proteksi brute force/rate limiting
+
+3. Student dashboard:
+   - greeting username
+   - saldo coin dan shard
+   - progress belajar
+   - paket yang sedang dikerjakan
+   - banner aktif
+   - karakter terbaru
+   - leaderboard preview
+
+4. Learning:
+   - daftar paket
+   - filter subject/difficulty
+   - detail paket
+   - progress
+   - soal pilihan ganda/isian
+   - status solved/attempted/pending
+   - pembahasan jika diizinkan
+
+5. Gacha:
+   - banner cards
+   - detail banner
+   - rate disclosure
+   - harga pull
+   - step-up progress
+   - confirmation sebelum menghabiskan koin
+   - hasil pull
+   - riwayat gacha
+
+6. Collection:
+   - grid karakter
+   - filter rarity
+   - detail karakter
+   - jumlah duplikat
+   - shard yang diperoleh dari duplikat
+
+7. Profile:
+   - avatar
+   - username
+   - total star
+   - pengaturan visibilitas
+
+8. Leaderboard:
+   - lifetime/monthly tabs
+   - ranking
+   - avatar
+   - username
+   - total star
+
+============================================================
+M. SECURITY REQUIREMENTS
+============================================================
+
+1. Server-side validation untuk seluruh request.
+2. Password hashing dengan algoritma yang aman.
+3. Session cookie aman.
+4. RBAC untuk semua admin route.
+5. Rate limiting untuk login, register, submit answer, dan gacha.
+6. Cegah IDOR: user hanya dapat membaca/mengubah resource miliknya kecuali role admin.
+7. Jangan mengirim correct answer ke client sebelum dinilai.
+8. Jangan percaya coin balance atau rarity dari client.
+9. Gunakan database transaction untuk operasi ekonomi.
+10. Gunakan unique constraints untuk reward satu kali.
+11. Gunakan idempotency key untuk operasi yang dapat diulang karena network retry.
+12. Escape/sanitize konten yang dapat memuat HTML agar mencegah XSS.
+13. Proteksi CSRF sesuai mekanisme autentikasi.
+14. Validasi file upload: tipe, ukuran, dan nama file.
+15. Jangan menyimpan secret dalam Git.
+16. Sediakan .env.example tanpa nilai rahasia.
+17. Buat audit log untuk tindakan admin penting.
+18. Buat prosedur backup database yang dijelaskan di README.
+19. Terapkan privacy-by-default pada profil publik siswa.
+20. Jangan menampilkan data pribadi siswa pada leaderboard.
+
+============================================================
+N. TESTING WAJIB
+============================================================
+
+Unit tests:
+- perhitungan bounty;
+- status soal;
+- perhitungan lifetime star;
+- perhitungan monthly star;
+- konversi duplikat ke shard;
+- harga single dan ten-pull;
+- step-up progression;
+- guarantee 6-star;
+- validasi banner aktif.
+
+Integration tests:
+- siswa register/login;
+- siswa menjawab pilihan ganda benar;
+- jawaban benar hanya memberi bounty sekali;
+- jawaban salah tidak memberi bounty;
+- soal yang sama di dua paket tetap hanya memberi reward sekali;
+- jawaban isian masuk pending review;
+- admin approve memberi reward sekali;
+- admin reject tidak memberi reward;
+- saldo tidak bisa negatif;
+- gacha mengurangi saldo secara benar;
+- duplikat dikonversi ke shard;
+- avatar tidak bisa dipilih jika karakter tidak dimiliki;
+- siswa tidak bisa mengakses endpoint admin;
+- banner ended tidak dapat digunakan.
+
+End-to-end tests:
+1. Student login -> pilih paket -> jawab benar -> saldo bertambah.
+2. Student mengirim jawaban isian -> admin approve -> saldo bertambah.
+3. Student membuka banner -> single pull -> karakter masuk inventory.
+4. Student melakukan ten-pull -> tepat 10 hasil.
+5. Student menjalankan step-up sampai tahap 5 -> memperoleh jaminan 6-star.
+6. Student memilih avatar dari inventory.
+7. Public visitor membuka leaderboard tanpa melihat data privat.
+
+Jangan mengandalkan test yang hanya memeriksa status HTTP. Periksa juga perubahan database dan saldo.
+
+============================================================
+O. ENVIRONMENT DAN RUNNING
+============================================================
+
+Buat .env.example minimal berisi placeholder:
+DATABASE_URL=
+AUTH_SECRET=
+APP_URL=http://localhost:3000
+APP_TIMEZONE=Asia/Jakarta
+
+Jangan menaruh secret sungguhan dalam file contoh.
+
+Buat docker-compose.yml untuk PostgreSQL development.
+
+README harus menjelaskan urutan perintah aktual sesuai package manager:
+- install dependencies
+- start database
+- copy .env.example menjadi .env
+- generate Prisma client
+- run migrations
+- seed database
+- start development server
+- run lint
+- run typecheck
+- run unit/integration tests
+- run e2e tests
+- production build
+
+Pastikan nama script package.json konsisten dengan README.
+
+============================================================
+P. WORKFLOW IMPLEMENTASI CLAUDE
+============================================================
+
+FASE 0 — INSPEKSI DAN DESAIN
+- Inspeksi folder.
+- Buat implementation plan.
+- Buat architecture document.
+- Buat ERD/database design.
+- Catat asumsi dan keputusan.
+- Periksa apakah seluruh requirement sudah terwakili.
+
+FASE 1 — PROJECT FOUNDATION
+- Inisialisasi Next.js + TypeScript.
+- Setup Tailwind dan shadcn/ui.
+- Setup ESLint/Prettier.
+- Setup PostgreSQL Docker.
+- Setup Prisma.
+- Setup environment validation.
+- Buat layout dasar dan halaman placeholder yang benar-benar terhubung ke routing.
+- Jalankan build.
+
+FASE 2 — DATABASE DAN AUTH
+- Buat Prisma schema.
+- Buat migration.
+- Buat seed demo.
+- Implement register/login/logout.
+- Implement session dan role guard.
+- Buat test auth dan authorization.
+- Pastikan admin tidak dapat didaftarkan secara publik.
+
+FASE 3 — LEARNING SYSTEM
+- CRUD subject/topic.
+- CRUD questions dan options.
+- CRUD packages.
+- Package-question ordering.
+- Student package list/detail.
+- Submit multiple choice.
+- Short answer pending review.
+- Admin review.
+- Solved state dan progress.
+- Bounty transaction.
+- Unit/integration/e2e tests.
+
+FASE 4 — WALLET DAN EVENT BONUS
+- Wallet COIN dan SHARD.
+- Transaction ledger.
+- Admin adjustment dengan alasan.
+- Event bonus dengan batas klaim.
+- Atomic balance update.
+- Tests race/retry/double claim.
+
+FASE 5 — CHARACTER COLLECTION
+- CRUD karakter.
+- Upload image dengan validasi.
+- Inventory.
+- Duplicate conversion.
+- Shard ledger.
+- Avatar selection.
+- Tests inventory dan ownership.
+
+FASE 6 — GACHA
+- Permanent banner.
+- Limited banner.
+- Rate configuration.
+- Rate disclosure.
+- Single pull.
+- Ten-pull.
+- Step-up five stages.
+- Guaranteed 6-star at stage 5.
+- Gacha history.
+- Atomic transaction dan idempotency.
+- Tests seluruh skenario gacha.
+
+FASE 7 — PROFILE DAN LEADERBOARD
+- Public/private profile.
+- Lifetime leaderboard.
+- Monthly leaderboard.
+- Tie-break.
+- Avatar.
+- Privacy tests.
+
+FASE 8 — ADMIN DASHBOARD DAN ANALYTICS
+- Overview.
+- Question management.
+- Package management.
+- Review queue.
+- Character management.
+- Banner management.
+- User management.
+- Event management.
+- Audit logs.
+
+FASE 9 — HARDENING DAN RELEASE
+- Security review.
+- Test seluruh alur.
+- Lint.
+- Typecheck.
+- Production build.
+- Periksa responsive layout.
+- Periksa empty/loading/error states.
+- Dokumentasikan deployment dan backup.
+- Perbarui README dan implementation plan.
+
+Aturan workflow:
+- Selesaikan satu fase sebelum menganggap fase berikutnya selesai.
+- Jangan menghapus test untuk membuat build hijau.
+- Jangan menonaktifkan TypeScript strict atau lint rules hanya untuk menghilangkan error.
+- Jangan mengganti database dengan in-memory mock untuk implementasi final.
+- Jangan membuat seluruh halaman menggunakan hardcoded data.
+- Seed data hanya untuk development/demo.
+- Setiap fitur inti harus memiliki test.
+- Jika menemukan konflik requirement, prioritaskan aturan bisnis di dokumen ini dan catat keputusan.
+
+============================================================
+Q. DEFINITION OF DONE
+============================================================
+
+Proyek hanya boleh dinyatakan selesai jika:
+
+[ ] Aplikasi dapat dijalankan secara lokal mengikuti README.
+[ ] Database PostgreSQL dapat dibuat dari migration.
+[ ] Seed demo berjalan.
+[ ] Siswa dapat register dan login.
+[ ] Admin dapat login melalui akun seed/prosedur aman.
+[ ] Admin dapat membuat soal dan paket.
+[ ] Siswa dapat mengerjakan pilihan ganda.
+[ ] Jawaban isian dapat diperiksa admin.
+[ ] Bounty hanya diberikan satu kali per soal per siswa.
+[ ] Progress tetap tersimpan setelah logout.
+[ ] Wallet dan transaction ledger bekerja.
+[ ] Admin dapat membuat karakter dan banner.
+[ ] Single dan ten-pull bekerja.
+[ ] Step-up lima tahap bekerja dengan jaminan 6-star di tahap kelima.
+[ ] Duplikat dikonversi menjadi shard.
+[ ] Avatar hanya dapat dipilih dari karakter milik siswa.
+[ ] Lifetime dan monthly leaderboard bekerja.
+[ ] Profil publik tidak membocorkan informasi pribadi.
+[ ] Semua operasi ekonomi diproses secara aman di server.
+[ ] Unit dan integration tests lulus.
+[ ] E2E tests untuk alur utama lulus.
+[ ] Lint, typecheck, dan production build lulus.
+[ ] README dan .env.example lengkap.
+
+Jika ada checkbox yang belum terpenuhi, tulis secara eksplisit sebagai pekerjaan tersisa.
+
+============================================================
+R. ASUMSI DEFAULT YANG BOLEH DIGUNAKAN
+============================================================
+
+Untuk menghindari Claude berhenti karena detail yang belum ditentukan, gunakan default berikut dan catat di docs/DECISIONS.md:
+
+1. Bahasa UI awal: Bahasa Indonesia.
+2. Timezone aplikasi: Asia/Jakarta.
+3. Harga demo:
+   - single 100 coins
+   - ten-pull 900 coins
+   - step-up: 100, 150, 200, 250, 300 coins
+4. Bounty demo:
+   - Easy 5
+   - Medium 10
+   - Hard 20
+   - Expert 35
+5. Duplicate shard demo:
+   - 1-star 1
+   - 2-star 2
+   - 3-star 5
+   - 4-star 10
+   - 5-star 25
+   - 6-star 50
+6. Step-up tahap kelima menjamin minimal satu 6-star, bukan otomatis featured.
+7. Step-up reset ke tahap pertama setelah siklus selesai.
+8. Monthly leaderboard dihitung berdasarkan karakter unik yang pertama kali diperoleh pada bulan tersebut.
+9. Lifetime leaderboard dihitung dari semua karakter unik yang dimiliki.
+10. Tie-break: jumlah soal solved, lalu waktu pencapaian skor.
+11. Tidak ada pembayaran uang asli.
+12. Rate gacha demo harus ditandai sebagai konfigurasi demo dan perlu ditinjau admin sebelum production.
+13. Siswa dapat mengatur profil publik atau privat.
+14. Karakter yang diarsipkan tetap terlihat di inventory lama.
+15. Jika banner berakhir di tengah step-up, siswa tidak dapat melanjutkan pull pada banner itu; histori tetap tersimpan.
+
+============================================================
+S. INSTRUKSI TERAKHIR
+============================================================
+
+Jangan berhenti setelah membuat rencana atau struktur folder. Lanjutkan implementasi seluruh fase yang dapat dikerjakan di environment.
+
+Prioritaskan aplikasi yang berfungsi, aman, dan dapat dijalankan daripada desain yang hanya terlihat bagus.
+
+Jika context window hampir habis:
+1. Simpan progres di docs/IMPLEMENTATION_PLAN.md.
+2. Tandai fase yang selesai dan belum selesai.
+3. Catat file penting yang sudah dibuat.
+4. Catat error yang belum terselesaikan.
+5. Tulis instruksi langkah berikutnya agar sesi Claude berikutnya dapat melanjutkan tanpa mengulang pekerjaan.
+
+Mulai sekarang dengan membaca PROJECT_SPEC.txt dan memeriksa direktori proyek.

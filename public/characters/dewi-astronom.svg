@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="dewi-astronom">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="256" height="256" rx="32" fill="url(#bg)"/>
+<circle cx="40" cy="44" r="18" fill="#ffffff" opacity="0.25"/><circle cx="214" cy="200" r="26" fill="#ffffff" opacity="0.18"/>
+<circle cx="128" cy="128" r="118" fill="url(#glow)"/>
+<path d="M70 222 Q72 170 128 166 Q184 170 186 222 Z" fill="#f59e0b" stroke="#0f172a" stroke-opacity="0.25" stroke-width="3"/>
+<ellipse cx="128" cy="124" rx="58" ry="56" fill="#a5f3fc" stroke="#0f172a" stroke-opacity="0.3" stroke-width="3"/>
+<circle cx="94" cy="142" r="8" fill="#fb7185" opacity="0.45"/><circle cx="162" cy="142" r="8" fill="#fb7185" opacity="0.45"/>
+<circle cx="108" cy="122" r="8" fill="#0f172a"/><circle cx="148" cy="122" r="8" fill="#0f172a"/><circle cx="111" cy="119" r="3" fill="#fff"/><circle cx="151" cy="119" r="3" fill="#fff"/>
+<path d="M114 148 Q128 160 142 148" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+<path d="M128.0,26.0 L133.3,38.7 L147.0,39.8 L136.6,48.8 L139.8,62.2 L128.0,55.0 L116.2,62.2 L119.4,48.8 L109.0,39.8 L122.7,38.7 Z" fill="#fde047" stroke="#ca8a04" stroke-width="2"/>
+<path d="M72.0,227.0 L74.4,232.7 L80.6,233.2 L75.9,237.3 L77.3,243.3 L72.0,240.1 L66.7,243.3 L68.1,237.3 L63.4,233.2 L69.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/><path d="M100.0,227.0 L102.4,232.7 L108.6,233.2 L103.9,237.3 L105.3,243.3 L100.0,240.1 L94.7,243.3 L96.1,237.3 L91.4,233.2 L97.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/><path d="M128.0,227.0 L130.4,232.7 L136.6,233.2 L131.9,237.3 L133.3,243.3 L128.0,240.1 L122.7,243.3 L124.1,237.3 L119.4,233.2 L125.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/><path d="M156.0,227.0 L158.4,232.7 L164.6,233.2 L159.9,237.3 L161.3,243.3 L156.0,240.1 L150.7,243.3 L152.1,237.3 L147.4,233.2 L153.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/><path d="M184.0,227.0 L186.4,232.7 L192.6,233.2 L187.9,237.3 L189.3,243.3 L184.0,240.1 L178.7,243.3 L180.1,237.3 L175.4,233.2 L181.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/>
+</svg>

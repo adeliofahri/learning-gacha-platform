@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="tok-penghapus">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="256" height="256" rx="32" fill="url(#bg)"/>
+<circle cx="40" cy="44" r="18" fill="#ffffff" opacity="0.25"/><circle cx="214" cy="200" r="26" fill="#ffffff" opacity="0.18"/>
+
+<path d="M70 222 Q72 170 128 166 Q184 170 186 222 Z" fill="#94a3b8" stroke="#0f172a" stroke-opacity="0.25" stroke-width="3"/>
+<ellipse cx="128" cy="124" rx="58" ry="56" fill="#fda4af" stroke="#0f172a" stroke-opacity="0.3" stroke-width="3"/>
+<circle cx="94" cy="142" r="8" fill="#fb7185" opacity="0.45"/><circle cx="162" cy="142" r="8" fill="#fb7185" opacity="0.45"/>
+<circle cx="108" cy="122" r="8" fill="#0f172a"/><circle cx="148" cy="122" r="8" fill="#0f172a"/><circle cx="111" cy="119" r="3" fill="#fff"/><circle cx="151" cy="119" r="3" fill="#fff"/>
+<path d="M114 148 Q128 160 142 148" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+
+<path d="M128.0,227.0 L130.4,232.7 L136.6,233.2 L131.9,237.3 L133.3,243.3 L128.0,240.1 L122.7,243.3 L124.1,237.3 L119.4,233.2 L125.6,232.7 Z" fill="#fde047" stroke="#854d0e" stroke-width="1.5"/>
+</svg>

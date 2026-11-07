@@ -1,0 +1,493 @@
+// Learning Gacha Platform — Prisma schema
+// Lihat docs/DATABASE_DESIGN.md untuk penjelasan. CHECK constraints ditambahkan di migration SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  CORRECT
+  INCORRECT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum Currency {
+  COIN
+  SHARD
+}
+
+enum TransactionType {
+  QUESTION_REWARD
+  EVENT_BONUS
+  ADMIN_ADJUSTMENT
+  GACHA_SPEND
+  DUPLICATE_CONVERSION
+  SHARD_SPEND
+}
+
+enum CharacterCategory {
+  PERMANENT
+  LIMITED
+}
+
+enum CharacterStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum BannerType {
+  PERMANENT
+  LIMITED
+}
+
+enum BannerStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PullType {
+  SINGLE
+  TEN_PULL
+  STEP_UP
+}
+
+enum EventStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  username          String     @unique
+  passwordHash      String
+  role              Role       @default(STUDENT)
+  status            UserStatus @default(ACTIVE)
+  isPublic          Boolean    @default(false)
+  avatarCharacterId String?
+  avatarCharacter   Character? @relation("UserAvatar", fields: [avatarCharacterId], references: [id], onDelete: SetNull)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  sessions          Session[]
+  wallet            Wallet?
+  transactions      WalletTransaction[]
+  attempts          Attempt[]           @relation("AttemptUser")
+  reviews           Attempt[]           @relation("AttemptReviewer")
+  solves            QuestionSolve[]
+  packageProgress   PackageProgress[]
+  inventory         InventoryItem[]
+  pulls             GachaPull[]
+  stepUpProgress    StepUpProgress[]
+  eventClaims       EventClaim[]
+  auditLogs         AuditLog[]
+  questionsCreated  Question[]
+  eventsCreated     Event[]
+  adjustmentsMade   WalletTransaction[] @relation("TransactionActor")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Wallet {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coins     Int      @default(0)
+  shards    Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model WalletTransaction {
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency      Currency
+  amount        Int
+  balanceAfter  Int
+  type          TransactionType
+  referenceType String?
+  referenceId   String?
+  description   String?
+  metadata      Json?
+  actorId       String?
+  actor         User?           @relation("TransactionActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model Subject {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  topics    Topic[]
+  questions Question[]
+  packages  Package[]
+}
+
+model Topic {
+  id        String     @id @default(cuid())
+  subjectId String
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  name      String
+  createdAt DateTime   @default(now())
+  questions Question[]
+
+  @@unique([subjectId, name])
+}
+
+model DifficultyConfig {
+  difficulty Difficulty @id
+  bounty     Int
+  updatedAt  DateTime   @updatedAt
+}
+
+model Question {
+  id          String        @id @default(cuid())
+  subjectId   String
+  subject     Subject       @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  topicId     String?
+  topic       Topic?        @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  title       String
+  content     String
+  type        QuestionType
+  difficulty  Difficulty
+  bounty      Int
+  explanation String?
+  status      ContentStatus @default(DRAFT)
+  version     Int           @default(1)
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  options         QuestionOption[]
+  acceptedAnswers QuestionAcceptedAnswer[]
+  packageItems    PackageQuestion[]
+  attempts        Attempt[]
+  solves          QuestionSolve[]
+
+  @@index([status, subjectId])
+}
+
+model QuestionOption {
+  id         String    @id @default(cuid())
+  questionId String
+  question   Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean   @default(false)
+  order      Int
+  attempts   Attempt[]
+
+  @@index([questionId])
+}
+
+model QuestionAcceptedAnswer {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+}
+
+model Package {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  subjectId   String?
+  subject     Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  status      ContentStatus     @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  items       PackageQuestion[]
+  progress    PackageProgress[]
+  attempts    Attempt[]
+}
+
+model PackageQuestion {
+  packageId  String
+  package    Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  order      Int
+
+  @@id([packageId, questionId])
+  @@index([questionId])
+}
+
+model PackageProgress {
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId      String
+  package        Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  startedAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+
+  @@id([userId, packageId])
+}
+
+model Attempt {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation("AttemptUser", fields: [userId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  packageId        String?
+  package          Package?        @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  questionVersion  Int
+  selectedOptionId String?
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  answerText       String?
+  status           AttemptStatus
+  isPractice       Boolean         @default(false)
+  snapshot         Json
+  idempotencyKey   String
+  reviewedById     String?
+  reviewedBy       User?           @relation("AttemptReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime?
+  feedback         String?
+  createdAt        DateTime        @default(now())
+  solve            QuestionSolve?
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, questionId])
+  @@index([status, createdAt])
+}
+
+model QuestionSolve {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  attemptId     String   @unique
+  attempt       Attempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  bountyAwarded Int
+  solvedAt      DateTime @default(now())
+
+  @@unique([userId, questionId])
+  @@index([solvedAt])
+}
+
+model DuplicateShardConfig {
+  rarity    Int      @id
+  shards    Int
+  updatedAt DateTime @updatedAt
+}
+
+model Character {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  description String
+  rarity      Int
+  imageUrl    String
+  category    CharacterCategory
+  status      CharacterStatus   @default(ACTIVE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  inventory    InventoryItem[]
+  bannerItems  BannerCharacter[]
+  gachaResults GachaResult[]
+  avatarUsers  User[]            @relation("UserAvatar")
+}
+
+model InventoryItem {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterId          String
+  character            Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  quantity             Int       @default(1)
+  duplicateCount       Int       @default(0)
+  shardsFromDuplicates Int       @default(0)
+  firstObtainedAt      DateTime  @default(now())
+  lastObtainedAt       DateTime  @default(now())
+
+  @@unique([userId, characterId])
+  @@index([firstObtainedAt])
+}
+
+model Banner {
+  id                      String       @id @default(cuid())
+  name                    String
+  description             String
+  type                    BannerType
+  status                  BannerStatus @default(DRAFT)
+  startsAt                DateTime?
+  endsAt                  DateTime?
+  singlePrice             Int
+  stepUpEnabled           Boolean      @default(false)
+  stepUpGuaranteeFeatured Boolean      @default(false)
+  isDemoRate              Boolean      @default(true)
+  imageUrl                String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  entries        BannerCharacter[]
+  stepUpStages   StepUpStage[]
+  stepUpProgress StepUpProgress[]
+  pulls          GachaPull[]
+}
+
+model BannerCharacter {
+  id          String    @id @default(cuid())
+  bannerId    String
+  banner      Banner    @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  weight      Int
+  isFeatured  Boolean   @default(false)
+
+  @@unique([bannerId, characterId])
+}
+
+model StepUpStage {
+  id        String @id @default(cuid())
+  bannerId  String
+  banner    Banner @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  stage     Int
+  price     Int
+  pullCount Int    @default(1)
+
+  @@unique([bannerId, stage])
+}
+
+model StepUpProgress {
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bannerId        String
+  banner          Banner   @relation(fields: [bannerId], references: [id], onDelete: Restrict)
+  currentStage    Int      @default(1)
+  cyclesCompleted Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@id([userId, bannerId])
+}
+
+model GachaPull {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bannerId       String
+  banner         Banner        @relation(fields: [bannerId], references: [id], onDelete: Restrict)
+  pullType       PullType
+  price          Int
+  stepNumber     Int?
+  idempotencyKey String
+  createdAt      DateTime      @default(now())
+  results        GachaResult[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+}
+
+model GachaResult {
+  id            String    @id @default(cuid())
+  pullId        String
+  pull          GachaPull @relation(fields: [pullId], references: [id], onDelete: Cascade)
+  characterId   String
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  rarity        Int
+  position      Int
+  isNew         Boolean
+  isGuaranteed  Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  shardsAwarded Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([pullId])
+}
+
+model Event {
+  id          String       @id @default(cuid())
+  name        String
+  description String
+  coinReward  Int
+  minSolved   Int          @default(0)
+  maxClaims   Int?
+  startsAt    DateTime
+  endsAt      DateTime
+  status      EventStatus  @default(ACTIVE)
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  claims      EventClaim[]
+}
+
+model EventClaim {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  claimedAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}
+
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}
