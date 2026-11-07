@@ -37,7 +37,7 @@ export function SettingsForm({ initial }: { initial: Values }) {
         <CardHeader>
           <CardTitle>Bounty default per kesulitan</CardTitle>
           <p className="text-muted-foreground text-sm">
-            Tidak mengubah bounty soal yang sudah ada.
+            Perubahan bounty akan langsung diterapkan ke seluruh soal dengan tingkat kesulitan terkait, termasuk soal yang sudah dibuat.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">

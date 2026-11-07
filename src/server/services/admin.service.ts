@@ -107,6 +107,7 @@ export async function setUserStatus(adminId: string, userId: string, status: Use
   });
 }
 
+
 export async function updateEconomySettings(
   adminId: string,
   input: {
@@ -115,13 +116,28 @@ export async function updateEconomySettings(
   },
 ) {
   return transaction(async (tx) => {
+    // Update konfigurasi bounty dan seluruh soal terkait.
     for (const [difficulty, bounty] of Object.entries(input.bounties)) {
+      const typedDifficulty =
+        difficulty as keyof typeof input.bounties;
+
       await tx.difficultyConfig.upsert({
-        where: { difficulty: difficulty as keyof typeof input.bounties },
-        create: { difficulty: difficulty as keyof typeof input.bounties, bounty },
+        where: { difficulty: typedDifficulty },
+        create: {
+          difficulty: typedDifficulty,
+          bounty,
+        },
         update: { bounty },
       });
+
+      // Terapkan bounty terbaru ke seluruh soal dengan difficulty tersebut.
+      await tx.question.updateMany({
+        where: { difficulty: typedDifficulty },
+        data: { bounty },
+      });
     }
+
+    // Update konfigurasi konversi duplicate menjadi shard.
     for (const [rarity, shards] of Object.entries(input.shards)) {
       await tx.duplicateShardConfig.upsert({
         where: { rarity: Number(rarity) },
@@ -129,6 +145,7 @@ export async function updateEconomySettings(
         update: { shards },
       });
     }
+
     await logAudit(tx, {
       actorId: adminId,
       action: "SETTINGS_UPDATE",

@@ -11,7 +11,7 @@ export default async function SettingsPage() {
     <div>
       <PageHeader
         title="Pengaturan ekonomi"
-        description="Nilai default bounty per tingkat kesulitan (untuk soal baru) dan konversi duplikat menjadi shard. Nilai seed adalah konfigurasi DEMO."
+        description="Pengaturan bounty per tingkat kesulitan yang berlaku untuk seluruh soal, serta konversi duplikat menjadi shard. Nilai seed adalah konfigurasi DEMO.."
       />
       <SettingsForm
         initial={{
