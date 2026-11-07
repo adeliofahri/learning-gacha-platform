@@ -6,7 +6,7 @@ export default async function globalSetup() {
   const url = process.env.DATABASE_URL ?? "";
   if (!/_e2e(\?|$)/.test(url))
     throw new Error("E2E hanya boleh memakai database berakhiran '_e2e'");
-  const env = { ...process.env, DATABASE_URL: url };
+  const env = { ...process.env, DATABASE_URL: url, DIRECT_URL: url };
   execSync("pnpm exec prisma migrate deploy", { stdio: "inherit", env });
   const prisma = new PrismaClient({ datasources: { db: { url } } });
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`

@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings,
   Sparkles,
+  UserCog,
   Users,
 } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
@@ -30,6 +31,7 @@ const NAV = [
   { href: "/admin/events", label: "Event", icon: Gift },
   { href: "/admin/settings", label: "Pengaturan", icon: Settings },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+  { href: "/admin/account", label: "Akun saya", icon: UserCog },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -6,8 +6,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime: koneksi pooled (mis. Neon "-pooler"). Migrasi: koneksi langsung (DIRECT_URL).
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -117,6 +119,7 @@ model User {
   stepUpProgress    StepUpProgress[]
   eventClaims       EventClaim[]
   auditLogs         AuditLog[]
+  uploads           UploadedImage[]
   questionsCreated  Question[]
   eventsCreated     Event[]
   adjustmentsMade   WalletTransaction[] @relation("TransactionActor")
@@ -490,4 +493,17 @@ model RateLimit {
   key         String   @id
   count       Int
   windowStart DateTime
+}
+
+/// Gambar karakter hasil upload admin. Disimpan di database agar berjalan di hosting
+/// serverless (mis. Vercel) yang filesystem-nya tidak permanen. Maks 2 MB per file.
+model UploadedImage {
+  id          String   @id @default(cuid())
+  filename    String   @unique
+  mimeType    String
+  size        Int
+  data        Bytes
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
 }

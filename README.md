@@ -37,6 +37,7 @@ Isi `.env`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/learning_gacha?schema=public
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/learning_gacha?schema=public
 AUTH_SECRET=<hasil: openssl rand -base64 48>
 APP_URL=http://localhost:3000
 APP_TIMEZONE=Asia/Jakarta
@@ -110,6 +111,7 @@ createdb -U postgres learning_gacha_test
 ```bash
 cat > .env.test <<'EOF'
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/learning_gacha_test?schema=public
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/learning_gacha_test?schema=public
 AUTH_SECRET=test-secret-test-secret-test-secret-0123456789
 APP_URL=http://localhost:3000
 APP_TIMEZONE=Asia/Jakarta
@@ -159,13 +161,19 @@ pnpm start
 
 ## Deployment
 
-1. Siapkan PostgreSQL terkelola dan environment variable (`DATABASE_URL`, `AUTH_SECRET` acak ≥32 karakter, `APP_URL` https, `APP_TIMEZONE`). Jangan commit secret.
-2. `pnpm install --frozen-lockfile && pnpm db:generate && pnpm build`
-3. `pnpm db:deploy` (jangan pakai `db:migrate`/`db:reset` di production).
-4. Buat admin dengan `pnpm admin:create`. **Jangan** menjalankan seed DEMO di production (seed menolak kecuali `ALLOW_DEMO_SEED=1`).
-5. `pnpm start` di belakang reverse proxy HTTPS tepercaya (cookie `Secure` aktif otomatis saat `NODE_ENV=production`; proxy harus menimpa `X-Forwarded-For`).
-6. Tinjau rate setiap banner dan matikan tanda DEMO RATE sebelum dibuka untuk siswa.
-7. Upload gambar disimpan di `storage/uploads/characters/` (disajikan lewat `/uploads/characters/<file>`). Pastikan direktori ini persisten (volume) atau ganti ke object storage pada platform serverless.
+> **Panduan lengkap langkah demi langkah (Bahasa Indonesia): [`deploy/PANDUAN_DEPLOY.md`](deploy/PANDUAN_DEPLOY.md)**
+> — target utama **Vercel + Neon** (gratis). Hosting PHP/MySQL seperti InfinityFree **tidak didukung**,
+> karena aplikasi ini membutuhkan Node.js dan PostgreSQL.
+
+Ringkasan:
+
+1. Buat database PostgreSQL (mis. Neon). Siapkan dua URL: `DATABASE_URL` (pooled, `&pgbouncer=true`) dan `DIRECT_URL` (langsung, untuk migrasi).
+2. Set environment variable di hosting: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET` (acak ≥32 karakter), `APP_URL`, `APP_TIMEZONE`. Jangan commit secret.
+3. Build dengan `pnpm vercel-build` (= `prisma generate` → `prisma migrate deploy` → `next build`). `vercel.json` sudah mengatur ini dan region `sin1` (Singapura).
+4. Isi data awal: jalankan `deploy/seed-demo.sql` di SQL editor database (atau `pnpm db:seed` dari komputer lokal), lalu **segera ganti password admin** di menu _Akun saya_. Alternatif tanpa data demo: `pnpm admin:create`.
+5. Tinjau rate setiap banner dan matikan tanda DEMO RATE sebelum dibuka untuk siswa.
+6. Gambar hasil upload admin disimpan di database (tabel `UploadedImage`), sehingga aman di hosting serverless tanpa disk permanen.
+7. Untuk server sendiri (VPS): `pnpm install --frozen-lockfile && pnpm vercel-build && pnpm start` di belakang reverse proxy HTTPS yang menimpa `X-Forwarded-For`.
 
 ## Backup & restore
 
@@ -187,7 +195,7 @@ Dengan Docker Compose:
 docker compose exec -T db pg_dump -U postgres --format=custom learning_gacha > backups/learning_gacha_$(date +%F).dump
 ```
 
-Sertakan juga `storage/uploads/` dalam backup. Uji restore secara berkala di environment terpisah.
+Gambar upload tersimpan di database sehingga ikut ter-backup. Uji restore secara berkala di environment terpisah.
 
 ## Struktur folder
 
@@ -201,4 +209,5 @@ src/lib/           auth/, db/, validation/ (Zod), env, http, rate-limit, constan
 src/server/        domain/ (fungsi murni) · services/ (aturan bisnis + transaksi) · repositories/ · policies/ (RBAC)
 tests/             unit/ · integration/ · e2e/
 docs/              dokumen desain & keamanan
+deploy/            PANDUAN_DEPLOY.md (Vercel + Neon), seed-demo.sql (data awal untuk SQL editor)
 ```

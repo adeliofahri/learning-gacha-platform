@@ -2,7 +2,10 @@ import { execSync } from "node:child_process";
 
 export default function setup() {
   process.loadEnvFile(".env.test");
-  if (!/_test(\?|$)/.test(process.env.DATABASE_URL ?? "")) {
+  if (
+    !/_test(\?|$)/.test(process.env.DATABASE_URL ?? "") ||
+    process.env.DIRECT_URL !== process.env.DATABASE_URL
+  ) {
     throw new Error(
       "Integration test hanya boleh memakai database yang namanya berakhiran '_test'",
     );

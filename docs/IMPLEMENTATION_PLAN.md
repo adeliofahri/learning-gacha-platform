@@ -36,9 +36,10 @@ Status: ✅ selesai · ⚠️ selesai dengan catatan · ⏳ belum
 ## Catatan / pekerjaan lanjutan (di luar MVP)
 
 - Penggunaan shard (upgrade/tukar) belum ada — ledger SHARD & tipe `SHARD_SPEND` sudah disiapkan.
-- Penyimpanan upload di disk lokal (`storage/uploads`); untuk serverless perlu object storage.
+- Upload gambar tersimpan di database (maks 2 MB/file); untuk volume besar pertimbangkan object storage.
 - Rate limiting berbasis tabel PostgreSQL; tabel `RateLimit` dapat dibersihkan berkala (baris lama tidak berdampak fungsional).
 - Docker daemon tidak tersedia di environment build; `docker-compose.yml` belum dijalankan di sini (PostgreSQL 16 native dipakai untuk test).
+- Deploy nyata ke Vercel + Neon belum bisa dijalankan dari environment ini (butuh akun pengguna). Alur yang sama (`pnpm vercel-build` pada DB kosong → `deploy/seed-demo.sql` → login, gacha, ganti password) sudah disimulasikan dan lulus secara lokal.
 
 ## Hasil verifikasi terakhir (2026-11-07, PostgreSQL 16 native, Node 22)
 

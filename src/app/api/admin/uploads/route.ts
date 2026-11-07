@@ -15,7 +15,7 @@ export const POST = handler(async (req, { user }) => {
   }
   const file = form.get("file");
   if (!(file instanceof File)) throw new AppError("BAD_REQUEST", "File gambar wajib diunggah");
-  const url = await saveCharacterImage(file);
+  const url = await saveCharacterImage(file, admin.id);
   await logAudit(prisma, {
     actorId: admin.id,
     action: "UPLOAD_IMAGE",

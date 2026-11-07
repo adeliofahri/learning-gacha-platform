@@ -3,6 +3,8 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
 import { ProfileForm } from "@/components/shared/profile-form";
+import { ChangePasswordForm } from "@/components/shared/change-password-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStudentPage } from "@/lib/auth/current-user";
 import { getProfileSummary, listInventory } from "@/server/services/collection.service";
 
@@ -39,6 +41,14 @@ export default async function ProfilePage() {
           imageUrl: i.character.imageUrl,
         }))}
       />
+      <Card className="mt-6 max-w-md">
+        <CardHeader>
+          <CardTitle>Keamanan akun</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }

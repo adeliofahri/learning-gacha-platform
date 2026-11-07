@@ -1,0 +1,23 @@
+/** Ilustrasi karakter bawaan di public/characters (dibuat oleh scripts/generate-character-art.py). */
+export const BUILT_IN_CHARACTER_IMAGES: readonly string[] = [
+  "/characters/arka-alkemis.svg",
+  "/characters/bayu-penyihir-bahasa.svg",
+  "/characters/bobo-buku.svg",
+  "/characters/dewi-astronom.svg",
+  "/characters/garuda-ilmu.svg",
+  "/characters/hara-sejarah.svg",
+  "/characters/kiko-kompas.svg",
+  "/characters/ksatria-kala.svg",
+  "/characters/lentera-rinai.svg",
+  "/characters/lumi-kertas.svg",
+  "/characters/mika-matematika.svg",
+  "/characters/naga-logika.svg",
+  "/characters/nala-navigator.svg",
+  "/characters/pip-pensil.svg",
+  "/characters/rara-rumus.svg",
+  "/characters/ratu-aurora.svg",
+  "/characters/sena-sains.svg",
+  "/characters/surya-profesor.svg",
+  "/characters/tirta-pustaka.svg",
+  "/characters/tok-penghapus.svg",
+];

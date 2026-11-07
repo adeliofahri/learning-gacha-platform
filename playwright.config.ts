@@ -6,6 +6,7 @@ export const E2E_DATABASE_URL =
   "postgresql://postgres:postgres@localhost:5432/learning_gacha_e2e?schema=public";
 
 process.env.DATABASE_URL = E2E_DATABASE_URL;
+process.env.DIRECT_URL = E2E_DATABASE_URL;
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -28,6 +29,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
+      DIRECT_URL: E2E_DATABASE_URL,
       APP_URL: `http://localhost:${PORT}`,
       APP_TIMEZONE: "Asia/Jakarta",
       AUTH_SECRET: process.env.AUTH_SECRET ?? "e2e-secret-e2e-secret-e2e-secret-0123456789",

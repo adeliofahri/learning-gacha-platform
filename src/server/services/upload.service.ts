@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { MAX_UPLOAD_BYTES } from "@/lib/constants";
+import { BUILT_IN_CHARACTER_IMAGES } from "@/lib/constants/character-art";
 
 const SIGNATURES: { mime: string; ext: string; check: (b: Buffer) => boolean }[] = [
   {
@@ -34,35 +34,38 @@ export function validateImage(file: { type: string; size: number }, bytes: Buffe
   return sig.ext;
 }
 
-export function uploadDir() {
-  return path.join(process.cwd(), "storage", "uploads", "characters");
-}
-
 export const UPLOAD_NAME_RE = /^[0-9]+-[a-f0-9]{16}\.(png|jpg|webp)$/;
-export const UPLOAD_MIME: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  webp: "image/webp",
-};
 
-export async function saveCharacterImage(file: File): Promise<string> {
+/**
+ * Menyimpan gambar ke database (tabel UploadedImage), bukan ke disk, agar tetap ada
+ * di hosting serverless seperti Vercel. Disajikan oleh /uploads/characters/[file].
+ */
+export async function saveCharacterImage(file: File, adminId: string): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
   const ext = validateImage(file, bytes);
-  const name = `${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
-  const dir = uploadDir();
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, name), bytes, { flag: "wx" });
-  return `/uploads/characters/${name}`;
+  const filename = `${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
+  await prisma.uploadedImage.create({
+    data: { filename, mimeType: file.type, size: bytes.length, data: bytes, createdById: adminId },
+  });
+  return `/uploads/characters/${filename}`;
 }
 
-/** Gambar bawaan di public/characters + hasil upload, untuk dipilih admin. */
+export async function getUploadedImage(filename: string) {
+  if (!UPLOAD_NAME_RE.test(filename)) return null;
+  return prisma.uploadedImage.findUnique({
+    where: { filename },
+    select: { data: true, mimeType: true },
+  });
+}
+
+/** Gambar bawaan (public/characters) + hasil upload, untuk dipilih admin. */
 export async function libraryImages(): Promise<string[]> {
-  const builtIn = await readdir(path.join(process.cwd(), "public", "characters")).catch(
-    () => [] as string[],
-  );
-  const uploaded = await readdir(uploadDir()).catch(() => [] as string[]);
+  const uploaded = await prisma.uploadedImage.findMany({
+    select: { filename: true },
+    orderBy: { createdAt: "desc" },
+  });
   return [
-    ...builtIn.filter((f) => /\.(svg|png|jpe?g|webp)$/.test(f)).map((f) => `/characters/${f}`),
-    ...uploaded.filter((f) => UPLOAD_NAME_RE.test(f)).map((f) => `/uploads/characters/${f}`),
+    ...BUILT_IN_CHARACTER_IMAGES,
+    ...uploaded.map((u) => `/uploads/characters/${u.filename}`),
   ];
 }

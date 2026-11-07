@@ -55,4 +55,8 @@ Tabel `RateLimit` (fixed window) — tanpa Redis sesuai spesifikasi. Diterapkan 
 
 ## File upload
 
-`POST /api/admin/uploads` (admin saja): PNG/JPEG/WebP, ≤ 2 MB, validasi magic bytes, nama file acak, disimpan di `public/uploads/characters/`. SVG ditolak (risiko XSS). Untuk deployment serverless, ganti ke object storage (lihat README).
+`POST /api/admin/uploads` (admin saja): PNG/JPEG/WebP, ≤ 2 MB, validasi magic bytes, nama file acak, **disimpan di database** (tabel `UploadedImage`, kolom `bytea`) dan disajikan oleh `/uploads/characters/[file]` dengan regex nama ketat + `nosniff` + CSP. SVG ditolak (risiko XSS). Penyimpanan di database dipilih agar berjalan di hosting serverless (Vercel) tanpa disk permanen.
+
+## Deployment
+
+Target: Vercel (Node.js serverless, region `sin1`) + Neon PostgreSQL. `DATABASE_URL` memakai pooler PgBouncer (`pgbouncer=true`), `DIRECT_URL` untuk `prisma migrate deploy` saat build. Lihat `deploy/PANDUAN_DEPLOY.md`.

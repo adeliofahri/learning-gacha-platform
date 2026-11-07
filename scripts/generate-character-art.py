@@ -85,4 +85,11 @@ os.makedirs(OUT, exist_ok=True)
 for slug, rarity, skin, acc in CHARS:
     with open(os.path.join(OUT, f"{slug}.svg"), "w") as f:
         f.write(svg(slug, rarity, skin, acc))
+TS = os.path.join(os.path.dirname(__file__), "..", "src", "lib", "constants", "character-art.ts")
+with open(TS, "w") as f:
+    f.write("/** Ilustrasi karakter bawaan di public/characters (dibuat oleh scripts/generate-character-art.py). */\n")
+    f.write("export const BUILT_IN_CHARACTER_IMAGES: readonly string[] = [\n")
+    for slug in sorted(c[0] for c in CHARS):
+        f.write(f'  "/characters/{slug}.svg",\n')
+    f.write("];\n")
 print(f"{len(CHARS)} karakter dibuat di {os.path.abspath(OUT)}")

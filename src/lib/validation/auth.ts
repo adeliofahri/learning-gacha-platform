@@ -29,3 +29,16 @@ export const loginSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Password lama wajib diisi").max(128),
+    newPassword: registerSchema.shape.password,
+  })
+  .strict()
+  .refine((v) => v.currentPassword !== v.newPassword, {
+    path: ["newPassword"],
+    message: "Password baru harus berbeda dari password lama",
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

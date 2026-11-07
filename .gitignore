@@ -11,6 +11,5 @@ next-env.d.ts
 !.env.example
 playwright-report
 test-results
-storage/uploads/characters/*
-!storage/uploads/characters/.gitkeep
 backups
+dist
