@@ -5,7 +5,11 @@ import { logAudit } from "./audit.service";
 
 export async function listInventory(userId: string, filters: { rarity?: number } = {}) {
   return prisma.inventoryItem.findMany({
-    where: { userId, quantity: { gt: 0 }, character: filters.rarity ? { rarity: filters.rarity } : undefined },
+    where: {
+      userId,
+      quantity: { gt: 0 },
+      character: filters.rarity ? { rarity: filters.rarity } : undefined,
+    },
     include: { character: true },
     orderBy: [{ character: { rarity: "desc" } }, { firstObtainedAt: "desc" }],
   });
@@ -21,13 +25,18 @@ export async function getInventoryItem(userId: string, characterId: string) {
     where: { characterId, pull: { userId } },
     orderBy: { createdAt: "desc" },
     take: 20,
-    include: { pull: { select: { pullType: true, banner: { select: { name: true } }, createdAt: true } } },
+    include: {
+      pull: { select: { pullType: true, banner: { select: { name: true } }, createdAt: true } },
+    },
   });
   return { item, history };
 }
 
 /** Avatar hanya dari karakter milik user — diverifikasi di server. */
-export async function updateProfile(userId: string, input: { isPublic?: boolean; avatarCharacterId?: string | null }) {
+export async function updateProfile(
+  userId: string,
+  input: { isPublic?: boolean; avatarCharacterId?: string | null },
+) {
   if (input.avatarCharacterId) {
     const owned = await prisma.inventoryItem.findUnique({
       where: { userId_characterId: { userId, characterId: input.avatarCharacterId } },
@@ -78,7 +87,9 @@ export async function getPublicProfile(username: string) {
     ? (
         await prisma.inventoryItem.findMany({
           where: { userId: user.id, quantity: { gt: 0 } },
-          include: { character: { select: { id: true, name: true, rarity: true, imageUrl: true } } },
+          include: {
+            character: { select: { id: true, name: true, rarity: true, imageUrl: true } },
+          },
           orderBy: [{ character: { rarity: "desc" } }, { firstObtainedAt: "asc" }],
         })
       ).map((i) => i.character)
@@ -99,7 +110,13 @@ export async function createCharacter(adminId: string, input: CharacterInput) {
   try {
     return await transaction(async (tx) => {
       const c = await tx.character.create({ data: input });
-      await logAudit(tx, { actorId: adminId, action: "CHARACTER_CREATE", targetType: "Character", targetId: c.id, metadata: { name: c.name, rarity: c.rarity } });
+      await logAudit(tx, {
+        actorId: adminId,
+        action: "CHARACTER_CREATE",
+        targetType: "Character",
+        targetId: c.id,
+        metadata: { name: c.name, rarity: c.rarity },
+      });
       return c;
     });
   } catch (e) {
@@ -116,7 +133,10 @@ export async function updateCharacter(adminId: string, id: string, input: Charac
       if (before.rarity !== input.rarity) {
         const owned = await tx.inventoryItem.count({ where: { characterId: id } });
         if (owned > 0) {
-          throw new AppError("CONFLICT", "Rarity tidak dapat diubah karena karakter sudah dimiliki siswa (mempengaruhi leaderboard).");
+          throw new AppError(
+            "CONFLICT",
+            "Rarity tidak dapat diubah karena karakter sudah dimiliki siswa (mempengaruhi leaderboard).",
+          );
         }
       }
       const c = await tx.character.update({ where: { id }, data: input });

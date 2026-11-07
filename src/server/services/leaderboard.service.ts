@@ -1,5 +1,11 @@
 import { appTimezone } from "@/lib/env";
-import { currentMonth, formatMonthKey, monthRange, parseMonthKey, type MonthKey } from "@/server/domain/leaderboard";
+import {
+  currentMonth,
+  formatMonthKey,
+  monthRange,
+  parseMonthKey,
+  type MonthKey,
+} from "@/server/domain/leaderboard";
 import { getLeaderboard, getUserRank } from "@/server/repositories/leaderboard.repository";
 
 export type Period = "lifetime" | "monthly";
@@ -8,7 +14,12 @@ export function resolvePeriod(period: string | undefined, month: string | undefi
   const p: Period = period === "monthly" ? "monthly" : "lifetime";
   const tz = appTimezone();
   const key: MonthKey = parseMonthKey(month) ?? currentMonth(tz);
-  return { period: p, month: key, monthKey: formatMonthKey(key), range: p === "monthly" ? monthRange(key, tz) : null };
+  return {
+    period: p,
+    month: key,
+    monthKey: formatMonthKey(key),
+    range: p === "monthly" ? monthRange(key, tz) : null,
+  };
 }
 
 export async function leaderboard(period?: string, month?: string, limit = 50) {

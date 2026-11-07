@@ -9,6 +9,11 @@ export const POST = handler<{ id: string }>(async (req, { user, params }) => {
   const idempotencyKey = requireIdempotencyKey(req);
   await enforceRateLimit("answer", student.id, RATE_LIMITS.answer);
   const input = await parseBody(req, attemptSchema);
-  const result = await submitAttempt({ userId: student.id, questionId: params.id, input, idempotencyKey });
+  const result = await submitAttempt({
+    userId: student.id,
+    questionId: params.id,
+    input,
+    idempotencyKey,
+  });
   return json(result, { status: result.replayed ? 200 : 201 });
 });

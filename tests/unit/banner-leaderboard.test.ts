@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { bannerAvailability, validateBannerForPublish, type BannerValidationInput } from "@/server/domain/banner";
+import {
+  bannerAvailability,
+  validateBannerForPublish,
+  type BannerValidationInput,
+} from "@/server/domain/banner";
 import {
   compareLeaderboard,
   lifetimeStars,
@@ -15,20 +19,44 @@ const day = 86_400_000;
 describe("validasi banner aktif", () => {
   const base = { status: "ACTIVE" as const, type: "LIMITED" as const };
   it("ACTIVE dalam rentang waktu", () => {
-    expect(bannerAvailability({ ...base, startsAt: new Date(+now - day), endsAt: new Date(+now + day) }, now)).toBe("ACTIVE");
+    expect(
+      bannerAvailability(
+        { ...base, startsAt: new Date(+now - day), endsAt: new Date(+now + day) },
+        now,
+      ),
+    ).toBe("ACTIVE");
   });
   it("ENDED setelah endsAt", () => {
-    expect(bannerAvailability({ ...base, startsAt: new Date(+now - 2 * day), endsAt: new Date(+now - 1) }, now)).toBe("ENDED");
+    expect(
+      bannerAvailability(
+        { ...base, startsAt: new Date(+now - 2 * day), endsAt: new Date(+now - 1) },
+        now,
+      ),
+    ).toBe("ENDED");
   });
   it("UPCOMING sebelum startsAt", () => {
-    expect(bannerAvailability({ ...base, startsAt: new Date(+now + day), endsAt: new Date(+now + 2 * day) }, now)).toBe("UPCOMING");
+    expect(
+      bannerAvailability(
+        { ...base, startsAt: new Date(+now + day), endsAt: new Date(+now + 2 * day) },
+        now,
+      ),
+    ).toBe("UPCOMING");
   });
   it("DRAFT / ARCHIVED tidak aktif", () => {
-    expect(bannerAvailability({ ...base, status: "DRAFT", startsAt: null, endsAt: null }, now)).toBe("DRAFT");
-    expect(bannerAvailability({ ...base, status: "ARCHIVED", startsAt: null, endsAt: null }, now)).toBe("ARCHIVED");
+    expect(
+      bannerAvailability({ ...base, status: "DRAFT", startsAt: null, endsAt: null }, now),
+    ).toBe("DRAFT");
+    expect(
+      bannerAvailability({ ...base, status: "ARCHIVED", startsAt: null, endsAt: null }, now),
+    ).toBe("ARCHIVED");
   });
   it("PERMANENT tanpa tanggal akhir selalu aktif", () => {
-    expect(bannerAvailability({ status: "ACTIVE", type: "PERMANENT", startsAt: null, endsAt: null }, now)).toBe("ACTIVE");
+    expect(
+      bannerAvailability(
+        { status: "ACTIVE", type: "PERMANENT", startsAt: null, endsAt: null },
+        now,
+      ),
+    ).toBe("ACTIVE");
   });
 });
 
@@ -44,7 +72,11 @@ describe("validasi publish banner", () => {
       { rarity: 6, weight: 2, isFeatured: true, characterActive: true },
       { rarity: 1, weight: 98, isFeatured: false, characterActive: true },
     ],
-    stages: [1, 2, 3, 4, 5].map((stage) => ({ stage, price: 100 + (stage - 1) * 50, pullCount: 1 })),
+    stages: [1, 2, 3, 4, 5].map((stage) => ({
+      stage,
+      price: 100 + (stage - 1) * 50,
+      pullCount: 1,
+    })),
   };
   it("konfigurasi valid lolos", () => expect(validateBannerForPublish(valid)).toEqual([]));
   it("step-up wajib 5 tahap", () => {
@@ -57,10 +89,14 @@ describe("validasi publish banner", () => {
     expect(errors.some((e) => e.includes("6★"))).toBe(true);
   });
   it("step-up tidak boleh di banner permanent", () => {
-    expect(validateBannerForPublish({ ...valid, type: "PERMANENT", endsAt: null })).toContain("Step-up hanya untuk banner limited");
+    expect(validateBannerForPublish({ ...valid, type: "PERMANENT", endsAt: null })).toContain(
+      "Step-up hanya untuk banner limited",
+    );
   });
   it("limited wajib rentang tanggal yang valid", () => {
-    expect(validateBannerForPublish({ ...valid, endsAt: valid.startsAt }).length).toBeGreaterThan(0);
+    expect(validateBannerForPublish({ ...valid, endsAt: valid.startsAt }).length).toBeGreaterThan(
+      0,
+    );
   });
   it("banner kosong ditolak", () => {
     expect(validateBannerForPublish({ ...valid, stepUpEnabled: false, entries: [] })).toContain(

@@ -1,10 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { appTimezone } from "@/lib/env";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export { cn } from "./cn";
 
 export function formatNumber(n: number): string {
   return new Intl.NumberFormat("id-ID").format(n);

@@ -17,16 +17,16 @@ Browser ──► Next.js (React Server Components + Client Components)
 
 ## Lapisan
 
-| Lapisan | Lokasi | Tanggung jawab |
-|---|---|---|
-| UI | `src/app/**`, `src/components/**` | Render, form (React Hook Form + Zod), tidak berisi aturan bisnis. |
-| Validasi | `src/lib/validation/**` | Skema Zod dipakai bersama client & server. Server selalu memvalidasi ulang. |
-| Route Handlers | `src/app/api/**/route.ts` | Tipis: auth guard → validasi → panggil service → JSON. |
-| Domain (pure) | `src/server/domain/**` | Fungsi murni: harga gacha, roll berbobot, jaminan 6★, step-up, status soal, shard, skor leaderboard, periode bulan. Diuji unit test. |
-| Services | `src/server/services/**` | Aturan bisnis + `prisma.$transaction` untuk operasi ekonomi. |
-| Repositories | `src/server/repositories/**` | Query baca yang dipakai ulang (leaderboard SQL, progress, dsb). |
-| Policies | `src/server/policies/**` | Otorisasi (requireUser / requireStudent / requireAdmin, kepemilikan resource). |
-| Infrastruktur | `src/lib/db`, `src/lib/env`, `src/lib/auth`, `src/lib/rate-limit` | Prisma client, validasi env, sesi, rate limiting berbasis DB. |
+| Lapisan        | Lokasi                                                            | Tanggung jawab                                                                                                                       |
+| -------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| UI             | `src/app/**`, `src/components/**`                                 | Render, form (React Hook Form + Zod), tidak berisi aturan bisnis.                                                                    |
+| Validasi       | `src/lib/validation/**`                                           | Skema Zod dipakai bersama client & server. Server selalu memvalidasi ulang.                                                          |
+| Route Handlers | `src/app/api/**/route.ts`                                         | Tipis: auth guard → validasi → panggil service → JSON.                                                                               |
+| Domain (pure)  | `src/server/domain/**`                                            | Fungsi murni: harga gacha, roll berbobot, jaminan 6★, step-up, status soal, shard, skor leaderboard, periode bulan. Diuji unit test. |
+| Services       | `src/server/services/**`                                          | Aturan bisnis + `prisma.$transaction` untuk operasi ekonomi.                                                                         |
+| Repositories   | `src/server/repositories/**`                                      | Query baca yang dipakai ulang (leaderboard SQL, progress, dsb).                                                                      |
+| Policies       | `src/server/policies/**`                                          | Otorisasi (requireUser / requireStudent / requireAdmin, kepemilikan resource).                                                       |
+| Infrastruktur  | `src/lib/db`, `src/lib/env`, `src/lib/auth`, `src/lib/rate-limit` | Prisma client, validasi env, sesi, rate limiting berbasis DB.                                                                        |
 
 ## Autentikasi & sesi
 

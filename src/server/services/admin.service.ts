@@ -4,20 +4,21 @@ import { AppError, notFound } from "@/lib/errors";
 import { logAudit } from "./audit.service";
 
 export async function getOverview() {
-  const [students, publishedQuestions, packages, characters, attempts, pendingReviews, sums] = await Promise.all([
-    prisma.user.count({ where: { role: "STUDENT" } }),
-    prisma.question.count({ where: { status: "PUBLISHED" } }),
-    prisma.package.count({ where: { status: { not: "ARCHIVED" } } }),
-    prisma.character.count({ where: { status: "ACTIVE" } }),
-    prisma.attempt.count(),
-    prisma.attempt.count({ where: { status: "PENDING_REVIEW" } }),
-    prisma.walletTransaction.groupBy({
-      by: ["type"],
-      where: { currency: "COIN" },
-      _sum: { amount: true },
-      _count: { _all: true },
-    }),
-  ]);
+  const [students, publishedQuestions, packages, characters, attempts, pendingReviews, sums] =
+    await Promise.all([
+      prisma.user.count({ where: { role: "STUDENT" } }),
+      prisma.question.count({ where: { status: "PUBLISHED" } }),
+      prisma.package.count({ where: { status: { not: "ARCHIVED" } } }),
+      prisma.character.count({ where: { status: "ACTIVE" } }),
+      prisma.attempt.count(),
+      prisma.attempt.count({ where: { status: "PENDING_REVIEW" } }),
+      prisma.walletTransaction.groupBy({
+        by: ["type"],
+        where: { currency: "COIN" },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
   const circulating = await prisma.wallet.aggregate({ _sum: { coins: true, shards: true } });
   return {
     students,
@@ -26,7 +27,11 @@ export async function getOverview() {
     characters,
     attempts,
     pendingReviews,
-    coinSummary: sums.map((s) => ({ type: s.type, total: s._sum.amount ?? 0, count: s._count._all })),
+    coinSummary: sums.map((s) => ({
+      type: s.type,
+      total: s._sum.amount ?? 0,
+      count: s._count._all,
+    })),
     circulatingCoins: circulating._sum.coins ?? 0,
     circulatingShards: circulating._sum.shards ?? 0,
   };
@@ -87,17 +92,27 @@ export async function setUserStatus(adminId: string, userId: string, status: Use
   return transaction(async (tx) => {
     const target = await tx.user.findUnique({ where: { id: userId } });
     if (!target) throw notFound("User");
-    if (target.role !== "STUDENT") throw new AppError("BAD_REQUEST", "Status admin tidak dapat diubah dari sini");
+    if (target.role !== "STUDENT")
+      throw new AppError("BAD_REQUEST", "Status admin tidak dapat diubah dari sini");
     const user = await tx.user.update({ where: { id: userId }, data: { status } });
     if (status === "SUSPENDED") await tx.session.deleteMany({ where: { userId } });
-    await logAudit(tx, { actorId: adminId, action: "USER_STATUS", targetType: "User", targetId: userId, metadata: { status } });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "USER_STATUS",
+      targetType: "User",
+      targetId: userId,
+      metadata: { status },
+    });
     return user;
   });
 }
 
 export async function updateEconomySettings(
   adminId: string,
-  input: { bounties: Record<"EASY" | "MEDIUM" | "HARD" | "EXPERT", number>; shards: Record<string, number> },
+  input: {
+    bounties: Record<"EASY" | "MEDIUM" | "HARD" | "EXPERT", number>;
+    shards: Record<string, number>;
+  },
 ) {
   return transaction(async (tx) => {
     for (const [difficulty, bounty] of Object.entries(input.bounties)) {
@@ -114,7 +129,12 @@ export async function updateEconomySettings(
         update: { shards },
       });
     }
-    await logAudit(tx, { actorId: adminId, action: "SETTINGS_UPDATE", targetType: "Settings", metadata: input });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "SETTINGS_UPDATE",
+      targetType: "Settings",
+      metadata: input,
+    });
   });
 }
 

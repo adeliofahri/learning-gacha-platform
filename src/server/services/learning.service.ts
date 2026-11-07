@@ -1,4 +1,10 @@
-import type { AttemptStatus, ContentStatus, Difficulty, Prisma, QuestionType } from "@prisma/client";
+import type {
+  AttemptStatus,
+  ContentStatus,
+  Difficulty,
+  Prisma,
+  QuestionType,
+} from "@prisma/client";
 import { prisma, transaction, isUniqueViolation, type Tx } from "@/lib/db";
 import { AppError, notFound } from "@/lib/errors";
 import type { AttemptInput, PackageInput, QuestionInput } from "@/lib/validation/learning";
@@ -16,7 +22,9 @@ import { logAudit } from "./audit.service";
 
 // ───────────────────────────── Konfigurasi ─────────────────────────────
 
-export async function getDifficultyConfig(db: Tx | typeof prisma = prisma): Promise<DifficultyBountyConfig> {
+export async function getDifficultyConfig(
+  db: Tx | typeof prisma = prisma,
+): Promise<DifficultyBountyConfig> {
   const rows = await db.difficultyConfig.findMany();
   const config: DifficultyBountyConfig = { EASY: 5, MEDIUM: 10, HARD: 20, EXPERT: 35 };
   for (const r of rows) config[r.difficulty] = r.bounty;
@@ -29,7 +37,13 @@ export async function createSubject(adminId: string, name: string) {
   try {
     return await transaction(async (tx) => {
       const s = await tx.subject.create({ data: { name } });
-      await logAudit(tx, { actorId: adminId, action: "SUBJECT_CREATE", targetType: "Subject", targetId: s.id, metadata: { name } });
+      await logAudit(tx, {
+        actorId: adminId,
+        action: "SUBJECT_CREATE",
+        targetType: "Subject",
+        targetId: s.id,
+        metadata: { name },
+      });
       return s;
     });
   } catch (e) {
@@ -42,7 +56,13 @@ export async function renameSubject(adminId: string, id: string, name: string) {
   try {
     return await transaction(async (tx) => {
       const s = await tx.subject.update({ where: { id }, data: { name } });
-      await logAudit(tx, { actorId: adminId, action: "SUBJECT_UPDATE", targetType: "Subject", targetId: id, metadata: { name } });
+      await logAudit(tx, {
+        actorId: adminId,
+        action: "SUBJECT_UPDATE",
+        targetType: "Subject",
+        targetId: id,
+        metadata: { name },
+      });
       return s;
     });
   } catch (e) {
@@ -57,11 +77,18 @@ export async function createTopic(adminId: string, subjectId: string, name: stri
   try {
     return await transaction(async (tx) => {
       const t = await tx.topic.create({ data: { subjectId, name } });
-      await logAudit(tx, { actorId: adminId, action: "TOPIC_CREATE", targetType: "Topic", targetId: t.id, metadata: { name, subjectId } });
+      await logAudit(tx, {
+        actorId: adminId,
+        action: "TOPIC_CREATE",
+        targetType: "Topic",
+        targetId: t.id,
+        metadata: { name, subjectId },
+      });
       return t;
     });
   } catch (e) {
-    if (isUniqueViolation(e)) throw new AppError("CONFLICT", "Topik sudah ada pada mata pelajaran ini");
+    if (isUniqueViolation(e))
+      throw new AppError("CONFLICT", "Topik sudah ada pada mata pelajaran ini");
     throw e;
   }
 }
@@ -97,10 +124,18 @@ export async function createQuestion(adminId: string, input: QuestionInput) {
         createdById: adminId,
         options:
           input.type === "MULTIPLE_CHOICE"
-            ? { create: input.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i })) }
+            ? {
+                create: input.options.map((o, i) => ({
+                  text: o.text,
+                  isCorrect: o.isCorrect,
+                  order: i,
+                })),
+              }
             : undefined,
         acceptedAnswers:
-          input.type === "SHORT_ANSWER" ? { create: input.acceptedAnswers.map((text) => ({ text })) } : undefined,
+          input.type === "SHORT_ANSWER"
+            ? { create: input.acceptedAnswers.map((text) => ({ text })) }
+            : undefined,
       },
     });
     await logAudit(tx, {
@@ -120,10 +155,16 @@ export async function createQuestion(adminId: string, input: QuestionInput) {
  */
 export async function updateQuestion(adminId: string, id: string, input: QuestionInput) {
   return transaction(async (tx) => {
-    const existing = await tx.question.findUnique({ where: { id }, include: { _count: { select: { attempts: true } } } });
+    const existing = await tx.question.findUnique({
+      where: { id },
+      include: { _count: { select: { attempts: true } } },
+    });
     if (!existing) throw notFound("Soal");
     if (existing.type !== input.type && existing._count.attempts > 0) {
-      throw new AppError("CONFLICT", "Tipe soal tidak dapat diubah karena sudah pernah dikerjakan. Buat soal baru.");
+      throw new AppError(
+        "CONFLICT",
+        "Tipe soal tidak dapat diubah karena sudah pernah dikerjakan. Buat soal baru.",
+      );
     }
     await assertTopicBelongs(tx, input.subjectId, input.topicId);
     const bounty = input.bounty ?? existing.bounty;
@@ -144,10 +185,18 @@ export async function updateQuestion(adminId: string, id: string, input: Questio
         version: { increment: 1 },
         options:
           input.type === "MULTIPLE_CHOICE"
-            ? { create: input.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i })) }
+            ? {
+                create: input.options.map((o, i) => ({
+                  text: o.text,
+                  isCorrect: o.isCorrect,
+                  order: i,
+                })),
+              }
             : undefined,
         acceptedAnswers:
-          input.type === "SHORT_ANSWER" ? { create: input.acceptedAnswers.map((text) => ({ text })) } : undefined,
+          input.type === "SHORT_ANSWER"
+            ? { create: input.acceptedAnswers.map((text) => ({ text })) }
+            : undefined,
       },
     });
     await logAudit(tx, {
@@ -155,7 +204,12 @@ export async function updateQuestion(adminId: string, id: string, input: Questio
       action: "QUESTION_UPDATE",
       targetType: "Question",
       targetId: id,
-      metadata: { version: q.version, bountyBefore: existing.bounty, bountyAfter: bounty, status: q.status },
+      metadata: {
+        version: q.version,
+        bountyBefore: existing.bounty,
+        bountyAfter: bounty,
+        status: q.status,
+      },
     });
     return q;
   });
@@ -166,7 +220,13 @@ export async function setQuestionStatus(adminId: string, id: string, status: Con
     const q = await tx.question.update({ where: { id }, data: { status } }).catch(() => {
       throw notFound("Soal");
     });
-    await logAudit(tx, { actorId: adminId, action: "QUESTION_STATUS", targetType: "Question", targetId: id, metadata: { status } });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "QUESTION_STATUS",
+      targetType: "Question",
+      targetId: id,
+      metadata: { status },
+    });
     return q;
   });
 }
@@ -209,8 +269,11 @@ export async function listQuestionsAdmin(filters: {
 
 async function writePackageItems(tx: Tx, packageId: string, questionIds: string[]) {
   if (questionIds.length) {
-    const found = await tx.question.count({ where: { id: { in: questionIds }, status: { not: "ARCHIVED" } } });
-    if (found !== questionIds.length) throw new AppError("BAD_REQUEST", "Ada soal yang tidak ditemukan atau diarsipkan");
+    const found = await tx.question.count({
+      where: { id: { in: questionIds }, status: { not: "ARCHIVED" } },
+    });
+    if (found !== questionIds.length)
+      throw new AppError("BAD_REQUEST", "Ada soal yang tidak ditemukan atau diarsipkan");
   }
   await tx.packageQuestion.deleteMany({ where: { packageId } });
   if (questionIds.length) {
@@ -223,7 +286,12 @@ async function writePackageItems(tx: Tx, packageId: string, questionIds: string[
 export async function createPackage(adminId: string, input: PackageInput) {
   return transaction(async (tx) => {
     const pkg = await tx.package.create({
-      data: { title: input.title, description: input.description || null, subjectId: input.subjectId || null, status: input.status },
+      data: {
+        title: input.title,
+        description: input.description || null,
+        subjectId: input.subjectId || null,
+        status: input.status,
+      },
     });
     await writePackageItems(tx, pkg.id, input.questionIds);
     await logAudit(tx, {
@@ -243,7 +311,12 @@ export async function updatePackage(adminId: string, id: string, input: PackageI
     if (!existing) throw notFound("Paket");
     const pkg = await tx.package.update({
       where: { id },
-      data: { title: input.title, description: input.description || null, subjectId: input.subjectId || null, status: input.status },
+      data: {
+        title: input.title,
+        description: input.description || null,
+        subjectId: input.subjectId || null,
+        status: input.status,
+      },
     });
     await writePackageItems(tx, id, input.questionIds);
     await logAudit(tx, {
@@ -261,7 +334,10 @@ export async function updatePackage(adminId: string, id: string, input: PackageI
 
 async function statusMap(userId: string, questionIds: string[]) {
   const [solves, attempts] = await Promise.all([
-    prisma.questionSolve.findMany({ where: { userId, questionId: { in: questionIds } }, select: { questionId: true } }),
+    prisma.questionSolve.findMany({
+      where: { userId, questionId: { in: questionIds } },
+      select: { questionId: true },
+    }),
     prisma.attempt.findMany({
       where: { userId, questionId: { in: questionIds } },
       select: { questionId: true, status: true },
@@ -272,7 +348,10 @@ async function statusMap(userId: string, questionIds: string[]) {
   for (const a of attempts) byQ.set(a.questionId, [...(byQ.get(a.questionId) ?? []), a.status]);
   const result = new Map<string, QuestionProgressStatus>();
   for (const id of questionIds) {
-    result.set(id, deriveQuestionStatus({ solved: solved.has(id), attemptStatuses: byQ.get(id) ?? [] }));
+    result.set(
+      id,
+      deriveQuestionStatus({ solved: solved.has(id), attemptStatuses: byQ.get(id) ?? [] }),
+    );
   }
   return { result, solved };
 }
@@ -291,7 +370,10 @@ export async function listPackagesForStudent(
     },
     include: {
       subject: true,
-      items: { where: { question: { status: "PUBLISHED" } }, select: { questionId: true, question: { select: { difficulty: true } } } },
+      items: {
+        where: { question: { status: "PUBLISHED" } },
+        select: { questionId: true, question: { select: { difficulty: true } } },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -327,7 +409,12 @@ export type StudentQuestionView = {
   explanation: string | null; // hanya setelah solved
   correctOptionId: string | null; // hanya setelah solved
   acceptedAnswers: string[]; // hanya setelah solved (isian)
-  lastReview: { status: AttemptStatus; feedback: string | null; reviewedAt: Date | null; answerText: string | null } | null;
+  lastReview: {
+    status: AttemptStatus;
+    feedback: string | null;
+    reviewedAt: Date | null;
+    answerText: string | null;
+  } | null;
 };
 
 export async function getPackageForStudent(userId: string, packageId: string) {
@@ -373,9 +460,15 @@ export async function getPackageForStudent(userId: string, packageId: string) {
       options: q.options.map((o) => ({ id: o.id, text: o.text })),
       explanation: isSolved ? q.explanation : null,
       correctOptionId: isSolved ? (q.options.find((o) => o.isCorrect)?.id ?? null) : null,
-      acceptedAnswers: isSolved && q.type === "SHORT_ANSWER" ? q.acceptedAnswers.map((a) => a.text) : [],
+      acceptedAnswers:
+        isSolved && q.type === "SHORT_ANSWER" ? q.acceptedAnswers.map((a) => a.text) : [],
       lastReview: last
-        ? { status: last.status, feedback: last.feedback, reviewedAt: last.reviewedAt, answerText: last.answerText }
+        ? {
+            status: last.status,
+            feedback: last.feedback,
+            reviewedAt: last.reviewedAt,
+            answerText: last.answerText,
+          }
         : null,
     };
   });
@@ -421,20 +514,36 @@ async function buildAttemptResult(attemptId: string, replayed: boolean): Promise
     attemptId: a.id,
     status: a.status,
     isPractice: a.isPractice,
-    correct: a.status === "CORRECT" || a.status === "APPROVED" ? true : a.status === "PENDING_REVIEW" ? null : false,
+    correct:
+      a.status === "CORRECT" || a.status === "APPROVED"
+        ? true
+        : a.status === "PENDING_REVIEW"
+          ? null
+          : false,
     bountyAwarded: a.solve?.bountyAwarded ?? 0,
     correctOptionId: reveal ? (a.question.options.find((o) => o.isCorrect)?.id ?? null) : null,
     explanation: reveal ? a.question.explanation : null,
-    acceptedAnswers: reveal && a.question.type === "SHORT_ANSWER" ? a.question.acceptedAnswers.map((x) => x.text) : [],
+    acceptedAnswers:
+      reveal && a.question.type === "SHORT_ANSWER"
+        ? a.question.acceptedAnswers.map((x) => x.text)
+        : [],
     coins: a.user.wallet?.coins ?? 0,
     replayed,
   };
 }
 
-async function awardSolve(tx: Tx, params: { userId: string; questionId: string; attemptId: string; bounty: number; title: string }) {
+async function awardSolve(
+  tx: Tx,
+  params: { userId: string; questionId: string; attemptId: string; bounty: number; title: string },
+) {
   const amount = bountyForCorrectAnswer({ alreadySolved: false, bounty: params.bounty });
   await tx.questionSolve.create({
-    data: { userId: params.userId, questionId: params.questionId, attemptId: params.attemptId, bountyAwarded: amount },
+    data: {
+      userId: params.userId,
+      questionId: params.questionId,
+      attemptId: params.attemptId,
+      bountyAwarded: amount,
+    },
   });
   if (amount > 0) {
     await applyWalletChange(tx, {
@@ -459,9 +568,12 @@ export async function submitAttempt(params: {
 }): Promise<AttemptResult> {
   const { userId, questionId, input, idempotencyKey } = params;
 
-  const replay = await prisma.attempt.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } } });
+  const replay = await prisma.attempt.findUnique({
+    where: { userId_idempotencyKey: { userId, idempotencyKey } },
+  });
   if (replay) {
-    if (replay.questionId !== questionId) throw new AppError("CONFLICT", "Idempotency-Key sudah dipakai untuk request lain");
+    if (replay.questionId !== questionId)
+      throw new AppError("CONFLICT", "Idempotency-Key sudah dipakai untuk request lain");
     return buildAttemptResult(replay.id, true);
   }
 
@@ -511,10 +623,15 @@ export async function submitAttempt(params: {
       } else if (alreadySolved) {
         // Latihan isian setelah solved: dicek otomatis terhadap jawaban acuan, tanpa review & tanpa reward.
         const norm = normalizeAnswer(input.answerText!);
-        status = question.acceptedAnswers.some((a) => normalizeAnswer(a.text) === norm) ? "CORRECT" : "INCORRECT";
+        status = question.acceptedAnswers.some((a) => normalizeAnswer(a.text) === norm)
+          ? "CORRECT"
+          : "INCORRECT";
       } else {
-        const pending = await tx.attempt.findFirst({ where: { userId, questionId, status: "PENDING_REVIEW" } });
-        if (pending) throw new AppError("CONFLICT", "Jawaban sebelumnya masih menunggu review admin");
+        const pending = await tx.attempt.findFirst({
+          where: { userId, questionId, status: "PENDING_REVIEW" },
+        });
+        if (pending)
+          throw new AppError("CONFLICT", "Jawaban sebelumnya masih menunggu review admin");
         status = "PENDING_REVIEW";
       }
 
@@ -534,7 +651,13 @@ export async function submitAttempt(params: {
       });
 
       if (status === "CORRECT" && !alreadySolved && question.type === "MULTIPLE_CHOICE") {
-        await awardSolve(tx, { userId, questionId, attemptId: attempt.id, bounty: question.bounty, title: question.title });
+        await awardSolve(tx, {
+          userId,
+          questionId,
+          attemptId: attempt.id,
+          bounty: question.bounty,
+          title: question.title,
+        });
       }
 
       if (input.packageId) {
@@ -553,7 +676,9 @@ export async function submitAttempt(params: {
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
     // Request ganda bersamaan: idempotency key atau solve record sudah dibuat oleh request lain.
-    const again = await prisma.attempt.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } } });
+    const again = await prisma.attempt.findUnique({
+      where: { userId_idempotencyKey: { userId, idempotencyKey } },
+    });
     if (again) return buildAttemptResult(again.id, true);
     attemptId = await run(); // sekarang tercatat sebagai latihan (tanpa bounty)
   }
@@ -588,7 +713,10 @@ export async function reviewAttempt(params: {
 }) {
   const run = () =>
     transaction(async (tx) => {
-      const attempt = await tx.attempt.findUnique({ where: { id: params.attemptId }, include: { question: true } });
+      const attempt = await tx.attempt.findUnique({
+        where: { id: params.attemptId },
+        include: { question: true },
+      });
       if (!attempt) throw notFound("Jawaban");
       // Update bersyarat: hanya satu reviewer yang bisa memproses attempt ini.
       const updated = await tx.attempt.updateMany({
@@ -645,11 +773,20 @@ export async function getLearningSummary(userId: string) {
       where: { userId, package: { status: "PUBLISHED" } },
       orderBy: { lastActivityAt: "desc" },
       take: 3,
-      include: { package: { include: { items: { where: { question: { status: "PUBLISHED" } }, select: { questionId: true } } } } },
+      include: {
+        package: {
+          include: {
+            items: { where: { question: { status: "PUBLISHED" } }, select: { questionId: true } },
+          },
+        },
+      },
     }),
   ]);
   const ids = recent.flatMap((r) => r.package.items.map((i) => i.questionId));
-  const solves = await prisma.questionSolve.findMany({ where: { userId, questionId: { in: ids } }, select: { questionId: true } });
+  const solves = await prisma.questionSolve.findMany({
+    where: { userId, questionId: { in: ids } },
+    select: { questionId: true },
+  });
   const solvedSet = new Set(solves.map((s) => s.questionId));
   return {
     solvedCount,

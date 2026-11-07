@@ -12,7 +12,14 @@ function tzOffsetMs(instant: Date, timeZone: string): number {
     second: "2-digit",
   }).formatToParts(instant);
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
-  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
   return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
 }
 
@@ -29,7 +36,11 @@ export function zonedMidnight(year: number, month: number, day: number, timeZone
 export type MonthKey = { year: number; month: number };
 
 export function currentMonth(timeZone: string, now: Date = new Date()): MonthKey {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric" }).formatToParts(now);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(now);
   return {
     year: Number(parts.find((p) => p.type === "year")?.value),
     month: Number(parts.find((p) => p.type === "month")?.value),
@@ -51,7 +62,10 @@ export function formatMonthKey({ year, month }: MonthKey): string {
 }
 
 /** Rentang [start, end) bulan dalam timezone aplikasi, sebagai instant UTC. */
-export function monthRange({ year, month }: MonthKey, timeZone: string): { start: Date; end: Date } {
+export function monthRange(
+  { year, month }: MonthKey,
+  timeZone: string,
+): { start: Date; end: Date } {
   const next = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
   return {
     start: zonedMidnight(year, month, 1, timeZone),
@@ -59,7 +73,12 @@ export function monthRange({ year, month }: MonthKey, timeZone: string): { start
   };
 }
 
-export type OwnedCharacter = { characterId: string; rarity: number; quantity: number; firstObtainedAt: Date };
+export type OwnedCharacter = {
+  characterId: string;
+  rarity: number;
+  quantity: number;
+  firstObtainedAt: Date;
+};
 
 /** Lifetime: SUM(rarity) karakter unik dengan quantity > 0. Duplikat tidak dihitung. */
 export function lifetimeStars(items: readonly OwnedCharacter[]): number {
@@ -69,7 +88,10 @@ export function lifetimeStars(items: readonly OwnedCharacter[]): number {
 }
 
 /** Bulanan: SUM(rarity) karakter unik yang PERTAMA kali diperoleh dalam rentang [start, end). */
-export function monthlyStars(items: readonly OwnedCharacter[], range: { start: Date; end: Date }): number {
+export function monthlyStars(
+  items: readonly OwnedCharacter[],
+  range: { start: Date; end: Date },
+): number {
   const seen = new Map<string, number>();
   for (const i of items) {
     if (i.quantity > 0 && i.firstObtainedAt >= range.start && i.firstObtainedAt < range.end) {

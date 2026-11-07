@@ -7,7 +7,7 @@ Format: **D-xx — Keputusan.** Alasan.
 - **D-01 — Bahasa UI: Bahasa Indonesia.**
 - **D-02 — Timezone: `Asia/Jakarta`** via `APP_TIMEZONE`.
 - **D-03 — Harga demo:** single 100, ten-pull 900, step-up 100/150/200/250/300.
-- **D-04 — Bounty demo:** EASY 5, MEDIUM 10, HARD 20, EXPERT 35 (tabel `DifficultyConfig`, dapat diubah admin di *Pengaturan*).
+- **D-04 — Bounty demo:** EASY 5, MEDIUM 10, HARD 20, EXPERT 35 (tabel `DifficultyConfig`, dapat diubah admin di _Pengaturan_).
 - **D-05 — Shard duplikat demo:** 1★1, 2★2, 3★5, 4★10, 5★25, 6★50 (tabel `DuplicateShardConfig`).
 - **D-06 — Step-up tahap 5 menjamin minimal satu 6★, tidak otomatis featured.** Opsi terpisah `stepUpGuaranteeFeatured` pada banner bila admin ingin menjamin featured 6★.
 - **D-07 — Step-up reset ke tahap 1 setelah tahap 5** (`cyclesCompleted` bertambah).
@@ -43,3 +43,12 @@ Format: **D-xx — Keputusan.** Alasan.
 - **D-38 — Komponen shadcn/ui ditulis langsung di `src/components/ui`** (pola shadcn: Radix + cva + tailwind-merge) karena CLI shadcn butuh akses jaringan interaktif.
 - **D-39 — Docker daemon tidak tersedia di environment build ini;** `docker-compose.yml` disediakan untuk lokal, test dijalankan dengan PostgreSQL 16 native.
 - **D-40 — Status siswa SUSPENDED** tidak bisa login dan sesi aktifnya ditolak.
+- **D-41 — Latihan isian setelah SOLVED dicek otomatis terhadap jawaban acuan** (tanpa review, tanpa reward, `isPractice = true`). Jawaban acuan boleh ditampilkan karena keputusan admin sudah ada.
+- **D-42 — Koleksi awal akun DEMO diisi langsung oleh seed** (bukan lewat gacha) agar leaderboard demo tidak kosong; sumbernya dicatat di audit log `SEED_INVENTORY`. Semua perolehan non-seed berasal dari `GachaResult`.
+- **D-43 — Middleware melakukan redirect cepat ke `/login` jika cookie sesi tidak ada** pada halaman terproteksi (agar respons 307, bukan 200 + redirect klien). Validasi sesi & role sebenarnya tetap di server.
+- **D-44 — Upload disimpan di `storage/uploads/characters/`** dan disajikan oleh Route Handler, karena `next start` hanya menyajikan file `public/` yang ada saat build.
+- **D-45 — Test integration & E2E tidak memakai `prisma migrate reset`.** Global setup menjalankan `migrate deploy` lalu TRUNCATE data, dengan guard nama database (`*_test` / `*_e2e`). Prisma CLI juga sengaja memblokir `migrate reset` saat dijalankan oleh agen AI.
+- **D-46 — Rarity karakter terkunci setelah dimiliki siswa** agar skor leaderboard historis tetap konsisten.
+- **D-47 — `X-Forwarded-For` dipercaya untuk rate limit per-IP**; wajib di belakang reverse proxy tepercaya (lihat SECURITY.md). Login juga dibatasi per email.
+- **D-48 — Tidak ada `loading.tsx` di root.** Ditemukan lewat E2E: kombinasi `loading.tsx` root + prefetch parsial halaman dinamis di Next 15.5 membuat sebagian navigasi klien tidak pernah selesai (~30% dalam uji berulang; 0% setelah dihapus). State loading ditangani di level komponen (tombol "Memproses…", form disabled) dan prefetch link aktif dimatikan.
+- **D-49 — UI memakai hasil yang dikonfirmasi server secara langsung** (status soal, saldo via event `wallet:update`, tahap step-up, item review) di samping `router.refresh()`, agar tampilan tidak bergantung pada urutan refresh vs prefetch. Nilai yang ditampilkan selalu berasal dari respons server, bukan dihitung klien.

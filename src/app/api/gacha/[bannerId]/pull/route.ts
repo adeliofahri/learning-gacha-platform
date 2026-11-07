@@ -10,6 +10,11 @@ export const POST = handler<{ bannerId: string }>(async (req, { user, params }) 
   const idempotencyKey = requireIdempotencyKey(req);
   await enforceRateLimit("gacha", student.id, RATE_LIMITS.gacha);
   const { type } = await parseBody(req, pullSchema);
-  const result = await performPull({ userId: student.id, bannerId: params.bannerId, pullType: type, idempotencyKey });
+  const result = await performPull({
+    userId: student.id,
+    bannerId: params.bannerId,
+    pullType: type,
+    idempotencyKey,
+  });
   return json(result, { status: result.replayed ? 200 : 201 });
 });

@@ -15,22 +15,32 @@ export async function resetDb() {
     `TRUNCATE TABLE ${tables.map((t) => `"public"."${t.tablename}"`).join(", ")} CASCADE`,
   );
   for (const [difficulty, bounty] of Object.entries(DEMO_DIFFICULTY_BOUNTY)) {
-    await prisma.difficultyConfig.create({ data: { difficulty: difficulty as keyof typeof DEMO_DIFFICULTY_BOUNTY, bounty } });
+    await prisma.difficultyConfig.create({
+      data: { difficulty: difficulty as keyof typeof DEMO_DIFFICULTY_BOUNTY, bounty },
+    });
   }
   for (const [rarity, shards] of Object.entries(DEMO_DUPLICATE_SHARDS)) {
     await prisma.duplicateShardConfig.create({ data: { rarity: Number(rarity), shards } });
   }
 }
 
-type ReqOptions = { method?: string; body?: unknown; token?: string; idempotencyKey?: string | null; ip?: string };
+type ReqOptions = {
+  method?: string;
+  body?: unknown;
+  token?: string;
+  idempotencyKey?: string | null;
+  ip?: string;
+};
 
 export function req(path: string, opts: ReqOptions = {}) {
   const headers: Record<string, string> = {
     "content-type": "application/json",
-    "x-forwarded-for": opts.ip ?? `10.0.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
+    "x-forwarded-for":
+      opts.ip ?? `10.0.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
   };
   if (opts.token) headers.cookie = `lgp_session=${opts.token}`;
-  if (opts.idempotencyKey !== null) headers["idempotency-key"] = opts.idempotencyKey ?? randomUUID();
+  if (opts.idempotencyKey !== null)
+    headers["idempotency-key"] = opts.idempotencyKey ?? randomUUID();
   return new Request(`http://localhost:3000${path}`, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
@@ -38,7 +48,9 @@ export function req(path: string, opts: ReqOptions = {}) {
   });
 }
 
-export const ctx = <P extends Record<string, string>>(params: P) => ({ params: Promise.resolve(params) });
+export const ctx = <P extends Record<string, string>>(params: P) => ({
+  params: Promise.resolve(params),
+});
 
 export function tokenFrom(res: Response): string {
   const cookie = res.headers.get("set-cookie") ?? "";
@@ -52,7 +64,9 @@ export async function registerStudent(prefix = "siswa") {
   counter += 1;
   const username = `${prefix}${counter}_${Math.floor(Math.random() * 1e6)}`.slice(0, 20);
   const res = await registerRoute(
-    req("/api/auth/register", { body: { username, email: `${username}@test.local`, password: "Password123" } }),
+    req("/api/auth/register", {
+      body: { username, email: `${username}@test.local`, password: "Password123" },
+    }),
   );
   if (res.status !== 201) throw new Error(`register gagal: ${res.status} ${await res.text()}`);
   const body = (await res.json()) as { user: { id: string } };
@@ -60,7 +74,11 @@ export async function registerStudent(prefix = "siswa") {
 }
 
 export async function createAdmin() {
-  const admin = await createAdminAccount({ username: "admin_test", email: "admin@test.local", password: "AdminPass123" });
+  const admin = await createAdminAccount({
+    username: "admin_test",
+    email: "admin@test.local",
+    password: "AdminPass123",
+  });
   const { token } = await createSession(admin.id);
   return { id: admin.id, token };
 }
@@ -75,7 +93,14 @@ export async function shards(userId: string) {
 export async function giveCoins(userId: string, amount: number) {
   await prisma.wallet.update({ where: { userId }, data: { coins: { increment: amount } } });
   await prisma.walletTransaction.create({
-    data: { userId, currency: "COIN", amount, balanceAfter: await coins(userId), type: "ADMIN_ADJUSTMENT", description: "test" },
+    data: {
+      userId,
+      currency: "COIN",
+      amount,
+      balanceAfter: await coins(userId),
+      type: "ADMIN_ADJUSTMENT",
+      description: "test",
+    },
   });
 }
 
@@ -83,7 +108,10 @@ export async function makeSubject() {
   return prisma.subject.create({ data: { name: `Subjek ${randomUUID().slice(0, 6)}` } });
 }
 
-export async function makeMcQuestion(adminId: string, opts: { bounty?: number; status?: "PUBLISHED" | "DRAFT" } = {}) {
+export async function makeMcQuestion(
+  adminId: string,
+  opts: { bounty?: number; status?: "PUBLISHED" | "DRAFT" } = {},
+) {
   const subject = await makeSubject();
   return prisma.question.create({
     data: {
@@ -135,9 +163,18 @@ export async function makePackage(questionIds: string[], title = "Paket") {
   });
 }
 
-export async function makeCharacter(rarity: number, name = `Char ${rarity} ${randomUUID().slice(0, 6)}`) {
+export async function makeCharacter(
+  rarity: number,
+  name = `Char ${rarity} ${randomUUID().slice(0, 6)}`,
+) {
   return prisma.character.create({
-    data: { name, description: "test", rarity, imageUrl: "/characters/pip-pensil.svg", category: "PERMANENT" },
+    data: {
+      name,
+      description: "test",
+      rarity,
+      imageUrl: "/characters/pip-pensil.svg",
+      category: "PERMANENT",
+    },
   });
 }
 
@@ -158,12 +195,28 @@ export async function makeBanner(opts: {
       type,
       status: "ACTIVE",
       singlePrice: opts.singlePrice ?? 100,
-      startsAt: opts.startsAt === undefined ? (type === "LIMITED" ? new Date(Date.now() - day) : null) : opts.startsAt,
-      endsAt: opts.endsAt === undefined ? (type === "LIMITED" ? new Date(Date.now() + day) : null) : opts.endsAt,
+      startsAt:
+        opts.startsAt === undefined
+          ? type === "LIMITED"
+            ? new Date(Date.now() - day)
+            : null
+          : opts.startsAt,
+      endsAt:
+        opts.endsAt === undefined
+          ? type === "LIMITED"
+            ? new Date(Date.now() + day)
+            : null
+          : opts.endsAt,
       stepUpEnabled: opts.stepUp ?? false,
       entries: { create: opts.entries.map((e) => ({ ...e, isFeatured: e.isFeatured ?? false })) },
       stepUpStages: opts.stepUp
-        ? { create: [100, 150, 200, 250, 300].map((price, i) => ({ stage: i + 1, price, pullCount: 1 })) }
+        ? {
+            create: [100, 150, 200, 250, 300].map((price, i) => ({
+              stage: i + 1,
+              price,
+              pullCount: 1,
+            })),
+          }
         : undefined,
     },
   });

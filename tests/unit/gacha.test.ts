@@ -22,7 +22,10 @@ const pool: PoolEntry[] = [
 ];
 
 /** RNG deterministik untuk test. */
-const fixed = (value: number): Rng => () => value;
+const fixed =
+  (value: number): Rng =>
+  () =>
+    value;
 const sequence = (values: number[]): Rng => {
   let i = 0;
   return () => values[i++ % values.length]!;
@@ -35,7 +38,9 @@ describe("harga pull", () => {
     expect(tenPullPrice(150)).toBe(1350);
   });
   it("step-up memakai harga tahap yang berjalan", () => {
-    expect(pullCost("STEP_UP", { singlePrice: 100 }, { stage: 3, price: 200, pullCount: 1 })).toEqual({ price: 200, count: 1 });
+    expect(
+      pullCost("STEP_UP", { singlePrice: 100 }, { stage: 3, price: 200, pullCount: 1 }),
+    ).toEqual({ price: 200, count: 1 });
     expect(() => pullCost("STEP_UP", { singlePrice: 100 })).toThrow();
   });
 });
@@ -101,7 +106,9 @@ describe("jaminan 6★", () => {
     expect(out[0]!.characterId).toBe("c6f");
   });
   it("error bila banner tidak punya 6★", () => {
-    expect(() => applySixStarGuarantee(noSix, pool.slice(0, 2), { requireFeatured: false }, fixed(0))).toThrow();
+    expect(() =>
+      applySixStarGuarantee(noSix, pool.slice(0, 2), { requireFeatured: false }, fixed(0)),
+    ).toThrow();
   });
 });
 
@@ -119,11 +126,19 @@ describe("rate disclosure", () => {
 
 describe("konversi duplikat ke shard", () => {
   it("sesuai konfigurasi rarity", () => {
-    expect([1, 2, 3, 4, 5, 6].map((r) => shardsForDuplicate(r, shardConfig))).toEqual([1, 2, 5, 10, 25, 50]);
+    expect([1, 2, 3, 4, 5, 6].map((r) => shardsForDuplicate(r, shardConfig))).toEqual([
+      1, 2, 5, 10, 25, 50,
+    ]);
   });
   it("karakter baru tidak dikonversi", () => {
-    expect(resolveAcquisition({ alreadyOwned: false, rarity: 6, config: shardConfig })).toEqual({ isNew: true, shards: 0 });
-    expect(resolveAcquisition({ alreadyOwned: true, rarity: 6, config: shardConfig })).toEqual({ isNew: false, shards: 50 });
+    expect(resolveAcquisition({ alreadyOwned: false, rarity: 6, config: shardConfig })).toEqual({
+      isNew: true,
+      shards: 0,
+    });
+    expect(resolveAcquisition({ alreadyOwned: true, rarity: 6, config: shardConfig })).toEqual({
+      isNew: false,
+      shards: 50,
+    });
   });
   it("menolak rarity tidak valid", () => {
     expect(() => shardsForDuplicate(7, shardConfig)).toThrow();

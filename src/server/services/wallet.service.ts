@@ -35,7 +35,10 @@ export async function applyWalletChange(tx: Tx, change: WalletChange) {
           RETURNING "shards" AS balance`;
 
   if (rows.length === 0) {
-    const exists = await tx.wallet.findUnique({ where: { userId: change.userId }, select: { userId: true } });
+    const exists = await tx.wallet.findUnique({
+      where: { userId: change.userId },
+      select: { userId: true },
+    });
     if (!exists) throw notFound("Wallet");
     throw new AppError(
       "INSUFFICIENT_FUNDS",
@@ -85,9 +88,13 @@ export async function adminAdjustCoins(params: {
   reason: string;
 }) {
   return transaction(async (tx) => {
-    const target = await tx.user.findUnique({ where: { id: params.userId }, select: { role: true } });
+    const target = await tx.user.findUnique({
+      where: { id: params.userId },
+      select: { role: true },
+    });
     if (!target) throw notFound("User");
-    if (target.role !== "STUDENT") throw new AppError("BAD_REQUEST", "Hanya wallet siswa yang bisa disesuaikan");
+    if (target.role !== "STUDENT")
+      throw new AppError("BAD_REQUEST", "Hanya wallet siswa yang bisa disesuaikan");
     const record = await applyWalletChange(tx, {
       userId: params.userId,
       currency: "COIN",

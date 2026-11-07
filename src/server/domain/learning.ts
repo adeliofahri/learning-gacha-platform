@@ -6,7 +6,8 @@ export type DifficultyBountyConfig = Record<Difficulty, number>;
 /** Bounty default untuk soal baru berdasarkan konfigurasi difficulty. */
 export function defaultBounty(difficulty: Difficulty, config: DifficultyBountyConfig): number {
   const value = config[difficulty];
-  if (!Number.isInteger(value) || value < 0) throw new Error(`Bounty tidak valid untuk ${difficulty}`);
+  if (!Number.isInteger(value) || value < 0)
+    throw new Error(`Bounty tidak valid untuk ${difficulty}`);
   return value;
 }
 

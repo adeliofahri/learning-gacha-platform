@@ -10,7 +10,8 @@ export const GET = handler(async (req, { user }) => {
   const status = sp.get("status");
   const result = await listQuestionsAdmin({
     search: sp.get("q") ?? undefined,
-    status: status === "DRAFT" || status === "PUBLISHED" || status === "ARCHIVED" ? status : undefined,
+    status:
+      status === "DRAFT" || status === "PUBLISHED" || status === "ARCHIVED" ? status : undefined,
     page: clampPage(sp.get("page") ?? undefined),
     pageSize: 50,
   });

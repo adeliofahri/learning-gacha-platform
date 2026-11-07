@@ -6,8 +6,11 @@ import { logAudit } from "./audit.service";
 import type { Tx } from "@/lib/db";
 
 async function validationInput(tx: Tx, input: BannerInput) {
-  const chars = await tx.character.findMany({ where: { id: { in: input.entries.map((e) => e.characterId) } } });
-  if (chars.length !== input.entries.length) throw new AppError("BAD_REQUEST", "Ada karakter yang tidak ditemukan");
+  const chars = await tx.character.findMany({
+    where: { id: { in: input.entries.map((e) => e.characterId) } },
+  });
+  if (chars.length !== input.entries.length)
+    throw new AppError("BAD_REQUEST", "Ada karakter yang tidak ditemukan");
   const byId = new Map(chars.map((c) => [c.id, c]));
   return {
     type: input.type,
@@ -58,7 +61,13 @@ export async function createBanner(adminId: string, input: BannerInput) {
     await validationInput(tx, input); // memastikan karakter ada
     const banner = await tx.banner.create({ data: { ...bannerData(input), status: "DRAFT" } });
     await writeChildren(tx, banner.id, input);
-    await logAudit(tx, { actorId: adminId, action: "BANNER_CREATE", targetType: "Banner", targetId: banner.id, metadata: { name: banner.name } });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "BANNER_CREATE",
+      targetType: "Banner",
+      targetId: banner.id,
+      metadata: { name: banner.name },
+    });
     return banner;
   });
 }
@@ -67,11 +76,13 @@ export async function updateBanner(adminId: string, id: string, input: BannerInp
   return transaction(async (tx) => {
     const existing = await tx.banner.findUnique({ where: { id } });
     if (!existing) throw notFound("Banner");
-    if (existing.status === "ARCHIVED") throw new AppError("CONFLICT", "Banner yang diarsipkan tidak dapat diubah");
+    if (existing.status === "ARCHIVED")
+      throw new AppError("CONFLICT", "Banner yang diarsipkan tidak dapat diubah");
     const v = await validationInput(tx, input);
     if (existing.status === "ACTIVE") {
       const errors = validateBannerForPublish(v);
-      if (errors.length) throw new AppError("UNPROCESSABLE", "Konfigurasi banner aktif tidak valid", errors);
+      if (errors.length)
+        throw new AppError("UNPROCESSABLE", "Konfigurasi banner aktif tidak valid", errors);
     }
     const banner = await tx.banner.update({ where: { id }, data: bannerData(input) });
     await writeChildren(tx, id, input);
@@ -80,7 +91,11 @@ export async function updateBanner(adminId: string, id: string, input: BannerInp
       action: "BANNER_UPDATE",
       targetType: "Banner",
       targetId: id,
-      metadata: { entries: input.entries.length, singlePrice: input.singlePrice, stepUp: input.stepUpEnabled },
+      metadata: {
+        entries: input.entries.length,
+        singlePrice: input.singlePrice,
+        stepUp: input.stepUpEnabled,
+      },
     });
     return banner;
   });
@@ -122,9 +137,16 @@ export async function publishBanner(adminId: string, id: string) {
       })),
       stages: b.stepUpStages,
     });
-    if (errors.length) throw new AppError("UNPROCESSABLE", "Banner belum valid untuk dipublikasikan", errors);
+    if (errors.length)
+      throw new AppError("UNPROCESSABLE", "Banner belum valid untuk dipublikasikan", errors);
     const banner = await tx.banner.update({ where: { id }, data: { status: "ACTIVE" } });
-    await logAudit(tx, { actorId: adminId, action: "BANNER_PUBLISH", targetType: "Banner", targetId: id, metadata: { isDemoRate: b.isDemoRate } });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "BANNER_PUBLISH",
+      targetType: "Banner",
+      targetId: id,
+      metadata: { isDemoRate: b.isDemoRate },
+    });
     return banner;
   });
 }
@@ -132,10 +154,17 @@ export async function publishBanner(adminId: string, id: string) {
 /** Arsip = tidak dapat dipakai pull baru; histori tetap tersimpan (tidak ada delete). */
 export async function archiveBanner(adminId: string, id: string) {
   return transaction(async (tx) => {
-    const banner = await tx.banner.update({ where: { id }, data: { status: "ARCHIVED" } }).catch(() => {
-      throw notFound("Banner");
+    const banner = await tx.banner
+      .update({ where: { id }, data: { status: "ARCHIVED" } })
+      .catch(() => {
+        throw notFound("Banner");
+      });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "BANNER_ARCHIVE",
+      targetType: "Banner",
+      targetId: id,
     });
-    await logAudit(tx, { actorId: adminId, action: "BANNER_ARCHIVE", targetType: "Banner", targetId: id });
     return banner;
   });
 }

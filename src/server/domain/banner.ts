@@ -49,7 +49,8 @@ export function validateBannerForPublish(b: BannerValidationInput): string[] {
     errors.push("Karakter yang diarsipkan tidak boleh ada di banner yang dipublikasikan");
   }
   if (b.type === "LIMITED") {
-    if (!b.startsAt || !b.endsAt) errors.push("Banner limited wajib memiliki tanggal mulai dan akhir");
+    if (!b.startsAt || !b.endsAt)
+      errors.push("Banner limited wajib memiliki tanggal mulai dan akhir");
     else if (b.startsAt >= b.endsAt) errors.push("Tanggal akhir harus setelah tanggal mulai");
   } else if (b.endsAt) {
     errors.push("Banner permanent tidak boleh memiliki tanggal akhir");
@@ -66,7 +67,8 @@ export function validateBannerForPublish(b: BannerValidationInput): string[] {
       errors.push("Jumlah pull per tahap harus 1-10");
     }
     const sixStars = b.entries.filter((e) => e.rarity >= GUARANTEE_RARITY);
-    if (sixStars.length === 0) errors.push("Step-up membutuhkan minimal satu karakter 6★ untuk jaminan");
+    if (sixStars.length === 0)
+      errors.push("Step-up membutuhkan minimal satu karakter 6★ untuk jaminan");
     if (b.stepUpGuaranteeFeatured && !sixStars.some((e) => e.isFeatured)) {
       errors.push("Jaminan featured membutuhkan minimal satu karakter 6★ featured");
     }

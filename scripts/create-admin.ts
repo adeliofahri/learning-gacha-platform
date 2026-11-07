@@ -14,13 +14,22 @@ async function main() {
     password: process.env.ADMIN_PASSWORD,
   });
   if (!parsed.success) {
-    console.error("Input tidak valid:", parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
+    console.error(
+      "Input tidak valid:",
+      parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+    );
     console.error("Set ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD sebagai environment variable.");
     process.exit(1);
   }
   const admin = await createAdminAccount(parsed.data);
   await prisma.auditLog.create({
-    data: { actorId: admin.id, action: "ADMIN_CREATE_CLI", targetType: "User", targetId: admin.id, metadata: { email: admin.email } },
+    data: {
+      actorId: admin.id,
+      action: "ADMIN_CREATE_CLI",
+      targetType: "User",
+      targetId: admin.id,
+      metadata: { email: admin.email },
+    },
   });
   console.info(`Admin siap: ${admin.email} (${admin.username})`);
 }

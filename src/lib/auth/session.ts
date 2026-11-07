@@ -23,7 +23,9 @@ export async function createSession(userId: string): Promise<{ token: string; ex
   return { token, expiresAt };
 }
 
-export async function getUserByToken(token: string | undefined | null): Promise<SessionUser | null> {
+export async function getUserByToken(
+  token: string | undefined | null,
+): Promise<SessionUser | null> {
   if (!token || token.length > 200) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },

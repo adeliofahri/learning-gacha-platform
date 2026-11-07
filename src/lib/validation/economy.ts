@@ -26,6 +26,9 @@ export const eventSchema = z
     status: z.enum(["ACTIVE", "ARCHIVED"]).default("ACTIVE"),
   })
   .strict()
-  .refine((e) => e.endsAt > e.startsAt, { path: ["endsAt"], message: "Tanggal akhir harus setelah mulai" });
+  .refine((e) => e.endsAt > e.startsAt, {
+    path: ["endsAt"],
+    message: "Tanggal akhir harus setelah mulai",
+  });
 
 export type EventInput = z.infer<typeof eventSchema>;

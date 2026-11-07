@@ -50,7 +50,10 @@ export function handler<P = Record<string, string>>(
   };
 }
 
-export async function parseBody<T>(req: Request, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
+export async function parseBody<T>(
+  req: Request,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+): Promise<T> {
   let raw: unknown;
   try {
     raw = await req.json();

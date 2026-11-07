@@ -33,19 +33,29 @@ describe("status soal", () => {
     expect(deriveQuestionStatus({ solved: false, attemptStatuses: [] })).toBe("UNSOLVED");
   });
   it("ATTEMPTED bila pernah salah", () => {
-    expect(deriveQuestionStatus({ solved: false, attemptStatuses: ["INCORRECT", "REJECTED"] })).toBe("ATTEMPTED");
+    expect(
+      deriveQuestionStatus({ solved: false, attemptStatuses: ["INCORRECT", "REJECTED"] }),
+    ).toBe("ATTEMPTED");
   });
   it("PENDING_REVIEW bila ada jawaban menunggu", () => {
-    expect(deriveQuestionStatus({ solved: false, attemptStatuses: ["REJECTED", "PENDING_REVIEW"] })).toBe("PENDING_REVIEW");
+    expect(
+      deriveQuestionStatus({ solved: false, attemptStatuses: ["REJECTED", "PENDING_REVIEW"] }),
+    ).toBe("PENDING_REVIEW");
   });
   it("SOLVED mengalahkan status lain", () => {
-    expect(deriveQuestionStatus({ solved: true, attemptStatuses: ["INCORRECT", "PENDING_REVIEW"] })).toBe("SOLVED");
+    expect(
+      deriveQuestionStatus({ solved: true, attemptStatuses: ["INCORRECT", "PENDING_REVIEW"] }),
+    ).toBe("SOLVED");
   });
 });
 
 describe("progress paket", () => {
   it("dihitung dari soal unik yang solved", () => {
-    expect(packageProgress(["a", "b", "c", "d"], new Set(["a", "c", "x"]))).toEqual({ solved: 2, total: 4, percent: 50 });
+    expect(packageProgress(["a", "b", "c", "d"], new Set(["a", "c", "x"]))).toEqual({
+      solved: 2,
+      total: 4,
+      percent: 50,
+    });
   });
   it("paket kosong = 0%", () => {
     expect(packageProgress([], new Set())).toEqual({ solved: 0, total: 0, percent: 0 });

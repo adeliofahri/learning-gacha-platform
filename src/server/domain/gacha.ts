@@ -55,11 +55,15 @@ export function totalWeight(pool: readonly PoolEntry[]): number {
 }
 
 /** Pilih satu entry berdasarkan weight memakai rng (default crypto.randomInt). */
-export function rollWeighted<T extends { weight: number }>(pool: readonly T[], rng: Rng = secureRng): T {
+export function rollWeighted<T extends { weight: number }>(
+  pool: readonly T[],
+  rng: Rng = secureRng,
+): T {
   const total = pool.reduce((sum, e) => sum + e.weight, 0);
   if (pool.length === 0 || total <= 0) throw new Error("Pool gacha kosong");
   let ticket = rng(total);
-  if (!Number.isInteger(ticket) || ticket < 0 || ticket >= total) throw new Error("RNG di luar rentang");
+  if (!Number.isInteger(ticket) || ticket < 0 || ticket >= total)
+    throw new Error("RNG di luar rentang");
   for (const entry of pool) {
     if (ticket < entry.weight) return entry;
     ticket -= entry.weight;
@@ -67,7 +71,11 @@ export function rollWeighted<T extends { weight: number }>(pool: readonly T[], r
   throw new Error("Roll gagal"); // tidak terjangkau
 }
 
-export function rollMany(pool: readonly PoolEntry[], count: number, rng: Rng = secureRng): RolledResult[] {
+export function rollMany(
+  pool: readonly PoolEntry[],
+  count: number,
+  rng: Rng = secureRng,
+): RolledResult[] {
   return Array.from({ length: count }, () => ({ ...rollWeighted(pool, rng), isGuaranteed: false }));
 }
 
@@ -86,7 +94,8 @@ export function applySixStarGuarantee(
   if (results.length === 0) throw new Error("Tidak ada hasil untuk dijamin");
   if (results.some(qualifies)) return [...results];
   const guaranteePool = pool.filter(qualifies);
-  if (guaranteePool.length === 0) throw new Error("Banner tidak memiliki karakter 6★ untuk jaminan");
+  if (guaranteePool.length === 0)
+    throw new Error("Banner tidak memiliki karakter 6★ untuk jaminan");
   const replacement: RolledResult = { ...rollWeighted(guaranteePool, rng), isGuaranteed: true };
   return [...results.slice(0, -1), replacement];
 }

@@ -19,7 +19,8 @@ export async function registerStudent(input: RegisterInput) {
     const session = await createSession(user.id);
     return { user, session };
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AppError("CONFLICT", "Username atau email sudah terdaftar");
+    if (isUniqueViolation(error))
+      throw new AppError("CONFLICT", "Username atau email sudah terdaftar");
     throw error;
   }
 }
@@ -35,13 +36,18 @@ export async function login(input: LoginInput) {
   }
   const ok = await verifyPassword(user.passwordHash, input.password);
   if (!ok) throw new AppError("UNAUTHORIZED", "Email atau password salah");
-  if (user.status !== "ACTIVE") throw new AppError("FORBIDDEN", "Akun dinonaktifkan. Hubungi admin.");
+  if (user.status !== "ACTIVE")
+    throw new AppError("FORBIDDEN", "Akun dinonaktifkan. Hubungi admin.");
   const session = await createSession(user.id);
   return { user: { id: user.id, username: user.username, role: user.role }, session };
 }
 
 /** Pembuatan admin hanya lewat seed / CLI lokal (scripts/create-admin.ts). */
-export async function createAdminAccount(input: { username: string; email: string; password: string }) {
+export async function createAdminAccount(input: {
+  username: string;
+  email: string;
+  password: string;
+}) {
   const passwordHash = await hashPassword(input.password);
   return prisma.user.upsert({
     where: { email: input.email },

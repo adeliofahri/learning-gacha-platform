@@ -34,21 +34,21 @@ RateLimit (key, windowStart, count)
 
 ## Tabel utama
 
-| Tabel | Catatan penting |
-|---|---|
-| `User` | `role` ADMIN/STUDENT, `status` ACTIVE/SUSPENDED, `isPublic` default **false** (privacy-by-default), `avatarCharacterId` hanya karakter milik user (diverifikasi server). |
-| `Session` | Token acak 32 byte; DB hanya menyimpan HMAC-SHA256 (`tokenHash`). |
-| `Wallet` | `coins`, `shards` dengan **CHECK (coins >= 0, shards >= 0)** di SQL migration. |
-| `WalletTransaction` | `currency` COIN/SHARD, `amount` bertanda (+ tambah, − kurang), `type`, `referenceType/referenceId`, `balanceAfter`, `metadata` non-sensitif. |
-| `Question` | `type`, `difficulty`, `bounty`, `status` DRAFT/PUBLISHED/ARCHIVED, `version` (naik saat konten diubah). Tidak pernah di-hard-delete bila sudah punya attempt. |
-| `Attempt` | `questionVersion`, `snapshot` JSON (konten, opsi, jawaban terpilih), `status` CORRECT/INCORRECT/PENDING_REVIEW/APPROVED/REJECTED, `isPractice`, reviewer/feedback. UNIQUE (userId, idempotencyKey). |
-| `QuestionSolve` | UNIQUE (userId, questionId) — dasar anti-duplikasi bounty; status SOLVED global per user-question. |
-| `Character` | `rarity` **CHECK 1..6**, `category` PERMANENT/LIMITED, `status` ACTIVE/ARCHIVED. |
-| `InventoryItem` | `quantity` (1 = dimiliki), `duplicateCount`, `shardsFromDuplicates`, `firstObtainedAt`, `lastObtainedAt`. |
-| `Banner` | `type` PERMANENT/LIMITED, `status` DRAFT/ACTIVE/ARCHIVED (ENDED diturunkan dari `endsAt`), `singlePrice` (ten-pull = 9×single), `stepUpEnabled`, `stepUpGuaranteeFeatured`, `isDemoRate`. |
-| `GachaPull` / `GachaResult` | user, banner, pull_type, price, stepNumber, idempotencyKey, hasil + rarity snapshot, flag `isGuaranteed`. |
-| `Event` / `EventClaim` | Rentang waktu, `coinReward`, `minSolved`, `maxClaims` global; UNIQUE (eventId, userId). |
-| `AuditLog` | actor, action, targetType, targetId, metadata, createdAt. |
+| Tabel                       | Catatan penting                                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`                      | `role` ADMIN/STUDENT, `status` ACTIVE/SUSPENDED, `isPublic` default **false** (privacy-by-default), `avatarCharacterId` hanya karakter milik user (diverifikasi server).                            |
+| `Session`                   | Token acak 32 byte; DB hanya menyimpan HMAC-SHA256 (`tokenHash`).                                                                                                                                   |
+| `Wallet`                    | `coins`, `shards` dengan **CHECK (coins >= 0, shards >= 0)** di SQL migration.                                                                                                                      |
+| `WalletTransaction`         | `currency` COIN/SHARD, `amount` bertanda (+ tambah, − kurang), `type`, `referenceType/referenceId`, `balanceAfter`, `metadata` non-sensitif.                                                        |
+| `Question`                  | `type`, `difficulty`, `bounty`, `status` DRAFT/PUBLISHED/ARCHIVED, `version` (naik saat konten diubah). Tidak pernah di-hard-delete bila sudah punya attempt.                                       |
+| `Attempt`                   | `questionVersion`, `snapshot` JSON (konten, opsi, jawaban terpilih), `status` CORRECT/INCORRECT/PENDING_REVIEW/APPROVED/REJECTED, `isPractice`, reviewer/feedback. UNIQUE (userId, idempotencyKey). |
+| `QuestionSolve`             | UNIQUE (userId, questionId) — dasar anti-duplikasi bounty; status SOLVED global per user-question.                                                                                                  |
+| `Character`                 | `rarity` **CHECK 1..6**, `category` PERMANENT/LIMITED, `status` ACTIVE/ARCHIVED.                                                                                                                    |
+| `InventoryItem`             | `quantity` (1 = dimiliki), `duplicateCount`, `shardsFromDuplicates`, `firstObtainedAt`, `lastObtainedAt`.                                                                                           |
+| `Banner`                    | `type` PERMANENT/LIMITED, `status` DRAFT/ACTIVE/ARCHIVED (ENDED diturunkan dari `endsAt`), `singlePrice` (ten-pull = 9×single), `stepUpEnabled`, `stepUpGuaranteeFeatured`, `isDemoRate`.           |
+| `GachaPull` / `GachaResult` | user, banner, pull_type, price, stepNumber, idempotencyKey, hasil + rarity snapshot, flag `isGuaranteed`.                                                                                           |
+| `Event` / `EventClaim`      | Rentang waktu, `coinReward`, `minSolved`, `maxClaims` global; UNIQUE (eventId, userId).                                                                                                             |
+| `AuditLog`                  | actor, action, targetType, targetId, metadata, createdAt.                                                                                                                                           |
 
 ## Status soal per siswa (diturunkan, bukan disimpan)
 

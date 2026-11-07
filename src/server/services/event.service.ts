@@ -10,8 +10,16 @@ export function isEventOpen(e: { status: string; startsAt: Date; endsAt: Date },
 
 export async function createEvent(adminId: string, input: EventInput) {
   return transaction(async (tx) => {
-    const ev = await tx.event.create({ data: { ...input, maxClaims: input.maxClaims ?? null, createdById: adminId } });
-    await logAudit(tx, { actorId: adminId, action: "EVENT_CREATE", targetType: "Event", targetId: ev.id, metadata: { name: ev.name, coinReward: ev.coinReward } });
+    const ev = await tx.event.create({
+      data: { ...input, maxClaims: input.maxClaims ?? null, createdById: adminId },
+    });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "EVENT_CREATE",
+      targetType: "Event",
+      targetId: ev.id,
+      metadata: { name: ev.name, coinReward: ev.coinReward },
+    });
     return ev;
   });
 }
@@ -20,8 +28,17 @@ export async function updateEvent(adminId: string, id: string, input: EventInput
   return transaction(async (tx) => {
     const exists = await tx.event.findUnique({ where: { id } });
     if (!exists) throw notFound("Event");
-    const ev = await tx.event.update({ where: { id }, data: { ...input, maxClaims: input.maxClaims ?? null } });
-    await logAudit(tx, { actorId: adminId, action: "EVENT_UPDATE", targetType: "Event", targetId: id, metadata: { name: ev.name, status: ev.status } });
+    const ev = await tx.event.update({
+      where: { id },
+      data: { ...input, maxClaims: input.maxClaims ?? null },
+    });
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "EVENT_UPDATE",
+      targetType: "Event",
+      targetId: id,
+      metadata: { name: ev.name, status: ev.status },
+    });
     return ev;
   });
 }
@@ -55,23 +72,32 @@ export async function listEventsForStudent(userId: string, now = new Date()) {
 export async function claimEvent(userId: string, eventId: string, now = new Date()) {
   try {
     return await transaction(async (tx) => {
-      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+      const locked = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT "id" FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
       if (locked.length === 0) throw notFound("Event");
       const ev = await tx.event.findUniqueOrThrow({ where: { id: eventId } });
       if (!isEventOpen(ev, now)) throw new AppError("CONFLICT", "Event tidak sedang berlangsung");
-      const already = await tx.eventClaim.findUnique({ where: { eventId_userId: { eventId, userId } } });
+      const already = await tx.eventClaim.findUnique({
+        where: { eventId_userId: { eventId, userId } },
+      });
       if (already) throw new AppError("CONFLICT", "Bonus event ini sudah kamu klaim");
       if (ev.minSolved > 0) {
         const solved = await tx.questionSolve.count({ where: { userId } });
         if (solved < ev.minSolved) {
-          throw new AppError("FORBIDDEN", `Selesaikan minimal ${ev.minSolved} soal untuk mengklaim bonus ini`);
+          throw new AppError(
+            "FORBIDDEN",
+            `Selesaikan minimal ${ev.minSolved} soal untuk mengklaim bonus ini`,
+          );
         }
       }
       if (ev.maxClaims !== null) {
         const count = await tx.eventClaim.count({ where: { eventId } });
         if (count >= ev.maxClaims) throw new AppError("CONFLICT", "Kuota klaim event sudah habis");
       }
-      const claim = await tx.eventClaim.create({ data: { eventId, userId, amount: ev.coinReward } });
+      const claim = await tx.eventClaim.create({
+        data: { eventId, userId, amount: ev.coinReward },
+      });
       await applyWalletChange(tx, {
         userId,
         currency: "COIN",

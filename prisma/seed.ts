@@ -13,7 +13,11 @@ import {
 
 const prisma = new PrismaClient();
 
-const ADMIN = { email: "admin@demo.local", username: "admin_demo", password: process.env.SEED_ADMIN_PASSWORD || "DemoAdmin123" };
+const ADMIN = {
+  email: "admin@demo.local",
+  username: "admin_demo",
+  password: process.env.SEED_ADMIN_PASSWORD || "DemoAdmin123",
+};
 const STUDENT_PASSWORD = process.env.SEED_STUDENT_PASSWORD || "DemoSiswa123";
 const STUDENTS = [
   { email: "siswa1@demo.local", username: "siswa_demo1", coins: 3000, isPublic: true },
@@ -21,31 +25,164 @@ const STUDENTS = [
   { email: "siswa3@demo.local", username: "siswa_demo3", coins: 0, isPublic: true },
 ];
 
-const CHARACTERS: { slug: string; name: string; rarity: number; category: "PERMANENT" | "LIMITED"; description: string }[] = [
-  { slug: "pip-pensil", name: "Pip si Pensil", rarity: 1, category: "PERMANENT", description: "Pensil kecil yang selalu siap mencatat." },
-  { slug: "lumi-kertas", name: "Lumi Kertas", rarity: 1, category: "PERMANENT", description: "Lembar kertas yang bersinar saat ide muncul." },
-  { slug: "tok-penghapus", name: "Tok Penghapus", rarity: 1, category: "PERMANENT", description: "Membantu memperbaiki kesalahan tanpa rasa malu." },
-  { slug: "kiko-kompas", name: "Kiko Kompas", rarity: 2, category: "PERMANENT", description: "Penunjuk arah para penjelajah ilmu." },
-  { slug: "rara-rumus", name: "Rara Rumus", rarity: 2, category: "PERMANENT", description: "Hafal semua rumus dasar di luar kepala." },
-  { slug: "bobo-buku", name: "Bobo Buku", rarity: 2, category: "PERMANENT", description: "Buku tebal yang suka bercerita." },
-  { slug: "sena-sains", name: "Sena Sains", rarity: 3, category: "PERMANENT", description: "Peneliti muda dengan kacamata pelindung." },
-  { slug: "hara-sejarah", name: "Hara Sejarah", rarity: 3, category: "PERMANENT", description: "Penjaga gulungan kisah masa lalu." },
-  { slug: "mika-matematika", name: "Mika Matematika", rarity: 3, category: "PERMANENT", description: "Menyelesaikan soal secepat kilat." },
-  { slug: "arka-alkemis", name: "Arka Alkemis", rarity: 4, category: "PERMANENT", description: "Mencampur unsur dengan penuh perhitungan." },
-  { slug: "nala-navigator", name: "Nala Navigator", rarity: 4, category: "PERMANENT", description: "Membaca peta bintang dan samudra." },
-  { slug: "tirta-pustaka", name: "Tirta Penjaga Pustaka", rarity: 4, category: "PERMANENT", description: "Mengenal setiap buku di perpustakaan." },
-  { slug: "surya-profesor", name: "Surya Sang Profesor", rarity: 5, category: "PERMANENT", description: "Guru bijak dengan toga keemasan." },
-  { slug: "bayu-penyihir-bahasa", name: "Bayu Penyihir Bahasa", rarity: 5, category: "PERMANENT", description: "Mantra-mantranya adalah puisi." },
-  { slug: "dewi-astronom", name: "Dewi Astronom", rarity: 5, category: "PERMANENT", description: "Memetakan rasi bintang setiap malam." },
-  { slug: "lentera-rinai", name: "Lentera Rinai", rarity: 5, category: "LIMITED", description: "Penjaga lentera festival musim hujan." },
-  { slug: "garuda-ilmu", name: "Garuda Ilmu", rarity: 6, category: "PERMANENT", description: "Legenda yang melindungi semangat belajar." },
-  { slug: "naga-logika", name: "Naga Logika", rarity: 6, category: "PERMANENT", description: "Naga yang hanya tunduk pada penalaran." },
-  { slug: "ratu-aurora", name: "Ratu Bintang Aurora", rarity: 6, category: "LIMITED", description: "Bintang utama Festival Aurora (limited)." },
-  { slug: "ksatria-kala", name: "Ksatria Kristal Kala", rarity: 6, category: "LIMITED", description: "Penjaga waktu dari menara kristal (limited)." },
+const CHARACTERS: {
+  slug: string;
+  name: string;
+  rarity: number;
+  category: "PERMANENT" | "LIMITED";
+  description: string;
+}[] = [
+  {
+    slug: "pip-pensil",
+    name: "Pip si Pensil",
+    rarity: 1,
+    category: "PERMANENT",
+    description: "Pensil kecil yang selalu siap mencatat.",
+  },
+  {
+    slug: "lumi-kertas",
+    name: "Lumi Kertas",
+    rarity: 1,
+    category: "PERMANENT",
+    description: "Lembar kertas yang bersinar saat ide muncul.",
+  },
+  {
+    slug: "tok-penghapus",
+    name: "Tok Penghapus",
+    rarity: 1,
+    category: "PERMANENT",
+    description: "Membantu memperbaiki kesalahan tanpa rasa malu.",
+  },
+  {
+    slug: "kiko-kompas",
+    name: "Kiko Kompas",
+    rarity: 2,
+    category: "PERMANENT",
+    description: "Penunjuk arah para penjelajah ilmu.",
+  },
+  {
+    slug: "rara-rumus",
+    name: "Rara Rumus",
+    rarity: 2,
+    category: "PERMANENT",
+    description: "Hafal semua rumus dasar di luar kepala.",
+  },
+  {
+    slug: "bobo-buku",
+    name: "Bobo Buku",
+    rarity: 2,
+    category: "PERMANENT",
+    description: "Buku tebal yang suka bercerita.",
+  },
+  {
+    slug: "sena-sains",
+    name: "Sena Sains",
+    rarity: 3,
+    category: "PERMANENT",
+    description: "Peneliti muda dengan kacamata pelindung.",
+  },
+  {
+    slug: "hara-sejarah",
+    name: "Hara Sejarah",
+    rarity: 3,
+    category: "PERMANENT",
+    description: "Penjaga gulungan kisah masa lalu.",
+  },
+  {
+    slug: "mika-matematika",
+    name: "Mika Matematika",
+    rarity: 3,
+    category: "PERMANENT",
+    description: "Menyelesaikan soal secepat kilat.",
+  },
+  {
+    slug: "arka-alkemis",
+    name: "Arka Alkemis",
+    rarity: 4,
+    category: "PERMANENT",
+    description: "Mencampur unsur dengan penuh perhitungan.",
+  },
+  {
+    slug: "nala-navigator",
+    name: "Nala Navigator",
+    rarity: 4,
+    category: "PERMANENT",
+    description: "Membaca peta bintang dan samudra.",
+  },
+  {
+    slug: "tirta-pustaka",
+    name: "Tirta Penjaga Pustaka",
+    rarity: 4,
+    category: "PERMANENT",
+    description: "Mengenal setiap buku di perpustakaan.",
+  },
+  {
+    slug: "surya-profesor",
+    name: "Surya Sang Profesor",
+    rarity: 5,
+    category: "PERMANENT",
+    description: "Guru bijak dengan toga keemasan.",
+  },
+  {
+    slug: "bayu-penyihir-bahasa",
+    name: "Bayu Penyihir Bahasa",
+    rarity: 5,
+    category: "PERMANENT",
+    description: "Mantra-mantranya adalah puisi.",
+  },
+  {
+    slug: "dewi-astronom",
+    name: "Dewi Astronom",
+    rarity: 5,
+    category: "PERMANENT",
+    description: "Memetakan rasi bintang setiap malam.",
+  },
+  {
+    slug: "lentera-rinai",
+    name: "Lentera Rinai",
+    rarity: 5,
+    category: "LIMITED",
+    description: "Penjaga lentera festival musim hujan.",
+  },
+  {
+    slug: "garuda-ilmu",
+    name: "Garuda Ilmu",
+    rarity: 6,
+    category: "PERMANENT",
+    description: "Legenda yang melindungi semangat belajar.",
+  },
+  {
+    slug: "naga-logika",
+    name: "Naga Logika",
+    rarity: 6,
+    category: "PERMANENT",
+    description: "Naga yang hanya tunduk pada penalaran.",
+  },
+  {
+    slug: "ratu-aurora",
+    name: "Ratu Bintang Aurora",
+    rarity: 6,
+    category: "LIMITED",
+    description: "Bintang utama Festival Aurora (limited).",
+  },
+  {
+    slug: "ksatria-kala",
+    name: "Ksatria Kristal Kala",
+    rarity: 6,
+    category: "LIMITED",
+    description: "Penjaga waktu dari menara kristal (limited).",
+  },
 ];
 
 /** DEMO RATE: total peluang per rarity (basis 10.000). Harus ditinjau sebelum production. */
-const DEMO_RARITY_WEIGHT: Record<number, number> = { 6: 200, 5: 600, 4: 1200, 3: 2000, 2: 2500, 1: 3500 };
+const DEMO_RARITY_WEIGHT: Record<number, number> = {
+  6: 200,
+  5: 600,
+  4: 1200,
+  3: 2000,
+  2: 2500,
+  1: 3500,
+};
 
 type QSeed = {
   key: string;
@@ -60,35 +197,212 @@ type QSeed = {
 };
 
 const QUESTIONS: QSeed[] = [
-  { key: "m1", subject: "Matematika", topic: "Aritmetika", title: "Penjumlahan dasar", content: "Berapakah hasil dari 27 + 15?", difficulty: "EASY", explanation: "27 + 15 = 42.", options: [["32", false], ["42", true], ["43", false], ["52", false]] },
-  { key: "m2", subject: "Matematika", topic: "Aritmetika", title: "Perkalian", content: "Berapakah hasil dari 12 × 8?", difficulty: "EASY", explanation: "12 × 8 = 96.", options: [["86", false], ["96", true], ["108", false], ["112", false]] },
-  { key: "m3", subject: "Matematika", topic: "Aljabar", title: "Persamaan linear", content: "Jika 3x + 5 = 20, berapakah nilai x?", difficulty: "MEDIUM", explanation: "3x = 15 sehingga x = 5.", options: [["3", false], ["4", false], ["5", true], ["6", false]] },
-  { key: "m4", subject: "Matematika", topic: "Geometri", title: "Luas lingkaran", content: "Luas lingkaran berjari-jari 7 cm (π = 22/7) adalah ...", difficulty: "HARD", explanation: "L = πr² = 22/7 × 49 = 154 cm².", options: [["44 cm²", false], ["144 cm²", false], ["154 cm²", true], ["308 cm²", false]] },
-  { key: "m5", subject: "Matematika", topic: "Aljabar", title: "Faktor kuadrat (isian)", content: "Tuliskan akar-akar dari x² − 5x + 6 = 0 (pisahkan dengan koma).", difficulty: "EXPERT", explanation: "(x − 2)(x − 3) = 0 sehingga x = 2 atau x = 3.", accepted: ["2, 3", "2 dan 3", "3, 2"] },
-  { key: "s1", subject: "IPA", topic: "Biologi", title: "Fotosintesis", content: "Organel sel tumbuhan tempat terjadinya fotosintesis adalah ...", difficulty: "EASY", explanation: "Fotosintesis terjadi di kloroplas.", options: [["Mitokondria", false], ["Kloroplas", true], ["Ribosom", false], ["Vakuola", false]] },
-  { key: "s2", subject: "IPA", topic: "Fisika", title: "Satuan gaya", content: "Satuan SI untuk gaya adalah ...", difficulty: "EASY", explanation: "Gaya diukur dalam Newton (N).", options: [["Joule", false], ["Watt", false], ["Newton", true], ["Pascal", false]] },
-  { key: "s3", subject: "IPA", topic: "Fisika", title: "Kecepatan", content: "Sepeda menempuh 30 km dalam 2 jam. Kecepatan rata-ratanya adalah ...", difficulty: "MEDIUM", explanation: "v = s / t = 30 / 2 = 15 km/jam.", options: [["10 km/jam", false], ["15 km/jam", true], ["20 km/jam", false], ["60 km/jam", false]] },
-  { key: "s4", subject: "IPA", topic: "Biologi", title: "Sistem peredaran darah (isian)", content: "Sebutkan nama organ yang memompa darah ke seluruh tubuh.", difficulty: "MEDIUM", explanation: "Jantung memompa darah ke seluruh tubuh.", accepted: ["jantung"] },
-  { key: "b1", subject: "Bahasa Indonesia", topic: "Tata Bahasa", title: "Kata baku", content: "Manakah penulisan kata baku yang benar?", difficulty: "EASY", explanation: "Bentuk baku: \"apotek\".", options: [["Apotik", false], ["Apotek", true], ["Apothek", false], ["Apotec", false]] },
-  { key: "b2", subject: "Bahasa Indonesia", topic: "Tata Bahasa", title: "Sinonim", content: "Sinonim dari kata \"cerdas\" adalah ...", difficulty: "MEDIUM", explanation: "Cerdas bersinonim dengan pandai.", options: [["Pandai", true], ["Malas", false], ["Lambat", false], ["Lemah", false]] },
-  { key: "b3", subject: "Bahasa Indonesia", topic: "Menulis", title: "Kalimat efektif (isian)", content: "Tuliskan satu kalimat efektif tentang manfaat membaca.", difficulty: "HARD", explanation: "Kalimat efektif memiliki subjek dan predikat yang jelas serta tidak bertele-tele." },
+  {
+    key: "m1",
+    subject: "Matematika",
+    topic: "Aritmetika",
+    title: "Penjumlahan dasar",
+    content: "Berapakah hasil dari 27 + 15?",
+    difficulty: "EASY",
+    explanation: "27 + 15 = 42.",
+    options: [
+      ["32", false],
+      ["42", true],
+      ["43", false],
+      ["52", false],
+    ],
+  },
+  {
+    key: "m2",
+    subject: "Matematika",
+    topic: "Aritmetika",
+    title: "Perkalian",
+    content: "Berapakah hasil dari 12 × 8?",
+    difficulty: "EASY",
+    explanation: "12 × 8 = 96.",
+    options: [
+      ["86", false],
+      ["96", true],
+      ["108", false],
+      ["112", false],
+    ],
+  },
+  {
+    key: "m3",
+    subject: "Matematika",
+    topic: "Aljabar",
+    title: "Persamaan linear",
+    content: "Jika 3x + 5 = 20, berapakah nilai x?",
+    difficulty: "MEDIUM",
+    explanation: "3x = 15 sehingga x = 5.",
+    options: [
+      ["3", false],
+      ["4", false],
+      ["5", true],
+      ["6", false],
+    ],
+  },
+  {
+    key: "m4",
+    subject: "Matematika",
+    topic: "Geometri",
+    title: "Luas lingkaran",
+    content: "Luas lingkaran berjari-jari 7 cm (π = 22/7) adalah ...",
+    difficulty: "HARD",
+    explanation: "L = πr² = 22/7 × 49 = 154 cm².",
+    options: [
+      ["44 cm²", false],
+      ["144 cm²", false],
+      ["154 cm²", true],
+      ["308 cm²", false],
+    ],
+  },
+  {
+    key: "m5",
+    subject: "Matematika",
+    topic: "Aljabar",
+    title: "Faktor kuadrat (isian)",
+    content: "Tuliskan akar-akar dari x² − 5x + 6 = 0 (pisahkan dengan koma).",
+    difficulty: "EXPERT",
+    explanation: "(x − 2)(x − 3) = 0 sehingga x = 2 atau x = 3.",
+    accepted: ["2, 3", "2 dan 3", "3, 2"],
+  },
+  {
+    key: "s1",
+    subject: "IPA",
+    topic: "Biologi",
+    title: "Fotosintesis",
+    content: "Organel sel tumbuhan tempat terjadinya fotosintesis adalah ...",
+    difficulty: "EASY",
+    explanation: "Fotosintesis terjadi di kloroplas.",
+    options: [
+      ["Mitokondria", false],
+      ["Kloroplas", true],
+      ["Ribosom", false],
+      ["Vakuola", false],
+    ],
+  },
+  {
+    key: "s2",
+    subject: "IPA",
+    topic: "Fisika",
+    title: "Satuan gaya",
+    content: "Satuan SI untuk gaya adalah ...",
+    difficulty: "EASY",
+    explanation: "Gaya diukur dalam Newton (N).",
+    options: [
+      ["Joule", false],
+      ["Watt", false],
+      ["Newton", true],
+      ["Pascal", false],
+    ],
+  },
+  {
+    key: "s3",
+    subject: "IPA",
+    topic: "Fisika",
+    title: "Kecepatan",
+    content: "Sepeda menempuh 30 km dalam 2 jam. Kecepatan rata-ratanya adalah ...",
+    difficulty: "MEDIUM",
+    explanation: "v = s / t = 30 / 2 = 15 km/jam.",
+    options: [
+      ["10 km/jam", false],
+      ["15 km/jam", true],
+      ["20 km/jam", false],
+      ["60 km/jam", false],
+    ],
+  },
+  {
+    key: "s4",
+    subject: "IPA",
+    topic: "Biologi",
+    title: "Sistem peredaran darah (isian)",
+    content: "Sebutkan nama organ yang memompa darah ke seluruh tubuh.",
+    difficulty: "MEDIUM",
+    explanation: "Jantung memompa darah ke seluruh tubuh.",
+    accepted: ["jantung"],
+  },
+  {
+    key: "b1",
+    subject: "Bahasa Indonesia",
+    topic: "Tata Bahasa",
+    title: "Kata baku",
+    content: "Manakah penulisan kata baku yang benar?",
+    difficulty: "EASY",
+    explanation: 'Bentuk baku: "apotek".',
+    options: [
+      ["Apotik", false],
+      ["Apotek", true],
+      ["Apothek", false],
+      ["Apotec", false],
+    ],
+  },
+  {
+    key: "b2",
+    subject: "Bahasa Indonesia",
+    topic: "Tata Bahasa",
+    title: "Sinonim",
+    content: 'Sinonim dari kata "cerdas" adalah ...',
+    difficulty: "MEDIUM",
+    explanation: "Cerdas bersinonim dengan pandai.",
+    options: [
+      ["Pandai", true],
+      ["Malas", false],
+      ["Lambat", false],
+      ["Lemah", false],
+    ],
+  },
+  {
+    key: "b3",
+    subject: "Bahasa Indonesia",
+    topic: "Menulis",
+    title: "Kalimat efektif (isian)",
+    content: "Tuliskan satu kalimat efektif tentang manfaat membaca.",
+    difficulty: "HARD",
+    explanation:
+      "Kalimat efektif memiliki subjek dan predikat yang jelas serta tidak bertele-tele.",
+  },
 ];
 
 const PACKAGES = [
-  { title: "Matematika Dasar", subject: "Matematika", description: "Latihan aritmetika, aljabar, dan geometri dasar.", keys: ["m1", "m2", "m3", "m4", "m5"] },
-  { title: "Sains Seru", subject: "IPA", description: "Mengenal fisika dan biologi sehari-hari.", keys: ["s1", "s2", "s3", "s4"] },
-  { title: "Bahasa Indonesia Pemula", subject: "Bahasa Indonesia", description: "Kata baku, sinonim, dan kalimat efektif.", keys: ["b1", "b2", "b3"] },
+  {
+    title: "Matematika Dasar",
+    subject: "Matematika",
+    description: "Latihan aritmetika, aljabar, dan geometri dasar.",
+    keys: ["m1", "m2", "m3", "m4", "m5"],
+  },
+  {
+    title: "Sains Seru",
+    subject: "IPA",
+    description: "Mengenal fisika dan biologi sehari-hari.",
+    keys: ["s1", "s2", "s3", "s4"],
+  },
+  {
+    title: "Bahasa Indonesia Pemula",
+    subject: "Bahasa Indonesia",
+    description: "Kata baku, sinonim, dan kalimat efektif.",
+    keys: ["b1", "b2", "b3"],
+  },
   // Soal m1 dan s1 juga ada di paket lain → bounty tetap hanya sekali (status SOLVED global).
-  { title: "Pemanasan Campuran", subject: null, description: "Campuran soal mudah dari berbagai mata pelajaran.", keys: ["m1", "s1", "b1", "s2"] },
+  {
+    title: "Pemanasan Campuran",
+    subject: null,
+    description: "Campuran soal mudah dari berbagai mata pelajaran.",
+    keys: ["m1", "s1", "b1", "s2"],
+  },
 ];
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "1") {
-    throw new Error("Seed DEMO tidak boleh dijalankan di production (set ALLOW_DEMO_SEED=1 untuk memaksa).");
+    throw new Error(
+      "Seed DEMO tidak boleh dijalankan di production (set ALLOW_DEMO_SEED=1 untuk memaksa).",
+    );
   }
   const existing = await prisma.user.findUnique({ where: { email: ADMIN.email } });
   if (existing) {
-    console.info("Seed demo sudah pernah dijalankan. Gunakan `pnpm db:reset` untuk mengulang dari awal.");
+    console.info(
+      "Seed demo sudah pernah dijalankan. Gunakan `pnpm db:reset` untuk mengulang dari awal.",
+    );
     return;
   }
 
@@ -109,7 +423,12 @@ async function main() {
   }
 
   const admin = await prisma.user.create({
-    data: { email: ADMIN.email, username: ADMIN.username, passwordHash: await hashPassword(ADMIN.password), role: "ADMIN" },
+    data: {
+      email: ADMIN.email,
+      username: ADMIN.username,
+      passwordHash: await hashPassword(ADMIN.password),
+      role: "ADMIN",
+    },
   });
 
   // ── Learning content ──
@@ -121,7 +440,14 @@ async function main() {
     }
     const tKey = `${q.subject}/${q.topic}`;
     if (q.topic && !topics.has(tKey)) {
-      topics.set(tKey, (await prisma.topic.create({ data: { name: q.topic, subjectId: subjects.get(q.subject)! } })).id);
+      topics.set(
+        tKey,
+        (
+          await prisma.topic.create({
+            data: { name: q.topic, subjectId: subjects.get(q.subject)! },
+          })
+        ).id,
+      );
     }
   }
   const questionIds = new Map<string, string>();
@@ -138,7 +464,9 @@ async function main() {
         explanation: q.explanation,
         status: "PUBLISHED",
         createdById: admin.id,
-        options: q.options ? { create: q.options.map(([text, isCorrect], order) => ({ text, isCorrect, order })) } : undefined,
+        options: q.options
+          ? { create: q.options.map(([text, isCorrect], order) => ({ text, isCorrect, order })) }
+          : undefined,
         acceptedAnswers: q.accepted ? { create: q.accepted.map((text) => ({ text })) } : undefined,
       },
     });
@@ -154,7 +482,12 @@ async function main() {
       bounty: DEMO_DIFFICULTY_BOUNTY.MEDIUM,
       status: "DRAFT",
       createdById: admin.id,
-      options: { create: [{ text: "3/4", isCorrect: true, order: 0 }, { text: "2/6", isCorrect: false, order: 1 }] },
+      options: {
+        create: [
+          { text: "3/4", isCorrect: true, order: 0 },
+          { text: "2/6", isCorrect: false, order: 1 },
+        ],
+      },
     },
   });
   for (const p of PACKAGES) {
@@ -173,24 +506,40 @@ async function main() {
   const chars = new Map<string, { id: string; rarity: number; category: string }>();
   for (const c of CHARACTERS) {
     const created = await prisma.character.create({
-      data: { name: c.name, description: c.description, rarity: c.rarity, category: c.category, imageUrl: `/characters/${c.slug}.svg` },
+      data: {
+        name: c.name,
+        description: c.description,
+        rarity: c.rarity,
+        category: c.category,
+        imageUrl: `/characters/${c.slug}.svg`,
+      },
     });
     chars.set(c.slug, { id: created.id, rarity: c.rarity, category: c.category });
   }
   const weightFor = (pool: { rarity: number }[], rarity: number) =>
-    Math.max(1, Math.round(DEMO_RARITY_WEIGHT[rarity]! / pool.filter((c) => c.rarity === rarity).length));
+    Math.max(
+      1,
+      Math.round(DEMO_RARITY_WEIGHT[rarity]! / pool.filter((c) => c.rarity === rarity).length),
+    );
 
   // ── Banners (DEMO RATE) ──
   const permanentPool = [...chars.values()].filter((c) => c.category === "PERMANENT");
   await prisma.banner.create({
     data: {
       name: "Akademi Bintang (Permanen)",
-      description: "Banner permanen berisi seluruh karakter reguler. DEMO RATE — tinjau sebelum production.",
+      description:
+        "Banner permanen berisi seluruh karakter reguler. DEMO RATE — tinjau sebelum production.",
       type: "PERMANENT",
       status: "ACTIVE",
       singlePrice: 100,
       isDemoRate: true,
-      entries: { create: permanentPool.map((c) => ({ characterId: c.id, weight: weightFor(permanentPool, c.rarity), isFeatured: false })) },
+      entries: {
+        create: permanentPool.map((c) => ({
+          characterId: c.id,
+          weight: weightFor(permanentPool, c.rarity),
+          isFeatured: false,
+        })),
+      },
     },
   });
 
@@ -205,7 +554,8 @@ async function main() {
   await prisma.banner.create({
     data: {
       name: "Festival Aurora (Limited)",
-      description: "Banner limited dengan featured Ratu Bintang Aurora dan Step-Up 5 tahap. Tahap 5 menjamin minimal satu 6★ (tidak otomatis featured). DEMO RATE.",
+      description:
+        "Banner limited dengan featured Ratu Bintang Aurora dan Step-Up 5 tahap. Tahap 5 menjamin minimal satu 6★ (tidak otomatis featured). DEMO RATE.",
       type: "LIMITED",
       status: "ACTIVE",
       startsAt: new Date(now - day),
@@ -218,17 +568,21 @@ async function main() {
         create: limitedPool.map((c) => ({
           characterId: c.id,
           weight: weightFor(limitedPool, c.rarity),
-          isFeatured: c.id === chars.get("ratu-aurora")!.id || c.id === chars.get("lentera-rinai")!.id,
+          isFeatured:
+            c.id === chars.get("ratu-aurora")!.id || c.id === chars.get("lentera-rinai")!.id,
         })),
       },
-      stepUpStages: { create: DEMO_STEP_UP_PRICES.map((price, i) => ({ stage: i + 1, price, pullCount: 1 })) },
+      stepUpStages: {
+        create: DEMO_STEP_UP_PRICES.map((price, i) => ({ stage: i + 1, price, pullCount: 1 })),
+      },
     },
   });
   const endedPool = [...permanentPool.filter((c) => c.rarity <= 5), chars.get("ksatria-kala")!];
   await prisma.banner.create({
     data: {
       name: "Menara Kristal (Berakhir)",
-      description: "Contoh banner limited yang sudah berakhir — tidak dapat dipakai untuk pull baru.",
+      description:
+        "Contoh banner limited yang sudah berakhir — tidak dapat dipakai untuk pull baru.",
       type: "LIMITED",
       status: "ACTIVE",
       startsAt: new Date(now - 60 * day),
@@ -278,7 +632,13 @@ async function main() {
   };
   for (const s of STUDENTS) {
     const user = await prisma.user.create({
-      data: { email: s.email, username: s.username, passwordHash: studentHash, isPublic: s.isPublic, wallet: { create: { coins: s.coins } } },
+      data: {
+        email: s.email,
+        username: s.username,
+        passwordHash: studentHash,
+        isPublic: s.isPublic,
+        wallet: { create: { coins: s.coins } },
+      },
     });
     if (s.coins > 0) {
       await prisma.walletTransaction.create({
@@ -294,7 +654,13 @@ async function main() {
         },
       });
       await prisma.auditLog.create({
-        data: { actorId: admin.id, action: "WALLET_ADJUST", targetType: "User", targetId: user.id, metadata: { amount: s.coins, reason: "Saldo awal demo (seed)" } },
+        data: {
+          actorId: admin.id,
+          action: "WALLET_ADJUST",
+          targetType: "User",
+          targetId: user.id,
+          metadata: { amount: s.coins, reason: "Saldo awal demo (seed)" },
+        },
       });
     }
     // Koleksi awal DEMO diisi langsung (bukan dari gacha) agar leaderboard demo tidak kosong.
@@ -303,20 +669,39 @@ async function main() {
     for (const [i, slug] of owned.entries()) {
       const obtained = new Date(now - (owned.length - i) * 3 * 60 * 60 * 1000);
       await prisma.inventoryItem.create({
-        data: { id: randomUUID(), userId: user.id, characterId: chars.get(slug)!.id, firstObtainedAt: obtained, lastObtainedAt: obtained },
+        data: {
+          id: randomUUID(),
+          userId: user.id,
+          characterId: chars.get(slug)!.id,
+          firstObtainedAt: obtained,
+          lastObtainedAt: obtained,
+        },
       });
     }
     if (owned.length) {
-      await prisma.user.update({ where: { id: user.id }, data: { avatarCharacterId: chars.get(owned[owned.length - 1]!)!.id } });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { avatarCharacterId: chars.get(owned[owned.length - 1]!)!.id },
+      });
       await prisma.auditLog.create({
-        data: { actorId: admin.id, action: "SEED_INVENTORY", targetType: "User", targetId: user.id, metadata: { characters: owned } },
+        data: {
+          actorId: admin.id,
+          action: "SEED_INVENTORY",
+          targetType: "User",
+          targetId: user.id,
+          metadata: { characters: owned },
+        },
       });
     }
   }
 
   console.info("✅ Seed DEMO selesai.");
-  console.info(`   Admin  : ${ADMIN.email} / ${process.env.SEED_ADMIN_PASSWORD ? "(dari SEED_ADMIN_PASSWORD)" : ADMIN.password}`);
-  console.info(`   Siswa  : ${STUDENTS.map((s) => s.email).join(", ")} / ${process.env.SEED_STUDENT_PASSWORD ? "(dari SEED_STUDENT_PASSWORD)" : STUDENT_PASSWORD}`);
+  console.info(
+    `   Admin  : ${ADMIN.email} / ${process.env.SEED_ADMIN_PASSWORD ? "(dari SEED_ADMIN_PASSWORD)" : ADMIN.password}`,
+  );
+  console.info(
+    `   Siswa  : ${STUDENTS.map((s) => s.email).join(", ")} / ${process.env.SEED_STUDENT_PASSWORD ? "(dari SEED_STUDENT_PASSWORD)" : STUDENT_PASSWORD}`,
+  );
 }
 
 main()

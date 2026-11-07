@@ -26,7 +26,10 @@ export async function getShardConfig(db: Tx | typeof prisma = prisma): Promise<S
 }
 
 const bannerInclude = {
-  entries: { include: { character: true }, orderBy: [{ character: { rarity: "desc" } }, { weight: "desc" }] },
+  entries: {
+    include: { character: true },
+    orderBy: [{ character: { rarity: "desc" } }, { weight: "desc" }],
+  },
   stepUpStages: { orderBy: { stage: "asc" } },
 } satisfies Prisma.BannerInclude;
 
@@ -37,11 +40,18 @@ export async function listBannersForStudent(now = new Date()) {
     include: bannerInclude,
     orderBy: [{ type: "desc" }, { createdAt: "desc" }],
   });
-  return banners.map((b) => ({ ...b, availability: bannerAvailability(b, now), tenPullPrice: tenPullPrice(b.singlePrice) }));
+  return banners.map((b) => ({
+    ...b,
+    availability: bannerAvailability(b, now),
+    tenPullPrice: tenPullPrice(b.singlePrice),
+  }));
 }
 
 export async function getBannerDetail(bannerId: string, userId?: string, now = new Date()) {
-  const banner = await prisma.banner.findFirst({ where: { id: bannerId, status: { not: "DRAFT" } }, include: bannerInclude });
+  const banner = await prisma.banner.findFirst({
+    where: { id: bannerId, status: { not: "DRAFT" } },
+    include: bannerInclude,
+  });
   if (!banner) throw notFound("Banner");
   const pool = poolFromEntries(banner.entries);
   const rates = computeRates(pool);
@@ -55,20 +65,37 @@ export async function getBannerDetail(bannerId: string, userId?: string, now = n
     tenPullPrice: tenPullPrice(banner.singlePrice),
     rates,
     stepUp: banner.stepUpEnabled
-      ? { currentStage: progress?.currentStage ?? 1, cyclesCompleted: progress?.cyclesCompleted ?? 0 }
+      ? {
+          currentStage: progress?.currentStage ?? 1,
+          cyclesCompleted: progress?.cyclesCompleted ?? 0,
+        }
       : null,
   };
 }
 
 function poolFromEntries(
-  entries: { characterId: string; weight: number; isFeatured: boolean; character: { rarity: number; status: string } }[],
+  entries: {
+    characterId: string;
+    weight: number;
+    isFeatured: boolean;
+    character: { rarity: number; status: string };
+  }[],
 ): PoolEntry[] {
   return entries
     .filter((e) => e.character.status === "ACTIVE")
-    .map((e) => ({ characterId: e.characterId, rarity: e.character.rarity, weight: e.weight, isFeatured: e.isFeatured }));
+    .map((e) => ({
+      characterId: e.characterId,
+      rarity: e.character.rarity,
+      weight: e.weight,
+      isFeatured: e.isFeatured,
+    }));
 }
 
-export type PullOutcome = Awaited<ReturnType<typeof loadPull>> & { replayed: boolean; coins: number; shards: number };
+export type PullOutcome = Awaited<ReturnType<typeof loadPull>> & {
+  replayed: boolean;
+  coins: number;
+  shards: number;
+};
 
 async function loadPull(pullId: string) {
   return prisma.gachaPull.findUniqueOrThrow({
@@ -84,7 +111,10 @@ async function loadPull(pullId: string) {
 }
 
 async function outcome(pullId: string, userId: string, replayed: boolean): Promise<PullOutcome> {
-  const [pull, wallet] = await Promise.all([loadPull(pullId), prisma.wallet.findUnique({ where: { userId } })]);
+  const [pull, wallet] = await Promise.all([
+    loadPull(pullId),
+    prisma.wallet.findUnique({ where: { userId } }),
+  ]);
   return { ...pull, replayed, coins: wallet?.coins ?? 0, shards: wallet?.shards ?? 0 };
 }
 
@@ -103,7 +133,9 @@ export async function performPull(params: {
   const { userId, bannerId, pullType, idempotencyKey } = params;
   const rng = params.rng ?? secureRng;
 
-  const existing = await prisma.gachaPull.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } } });
+  const existing = await prisma.gachaPull.findUnique({
+    where: { userId_idempotencyKey: { userId, idempotencyKey } },
+  });
   if (existing) {
     if (existing.bannerId !== bannerId || existing.pullType !== pullType) {
       throw new AppError("CONFLICT", "Idempotency-Key sudah dipakai untuk request lain");
@@ -114,13 +146,18 @@ export async function performPull(params: {
   try {
     const pullId = await transaction(async (tx) => {
       const now = params.now ?? new Date();
-      const banner = await tx.banner.findUnique({ where: { id: bannerId }, include: bannerInclude });
+      const banner = await tx.banner.findUnique({
+        where: { id: bannerId },
+        include: bannerInclude,
+      });
       if (!banner) throw notFound("Banner");
       const availability = bannerAvailability(banner, now);
       if (availability !== "ACTIVE") {
         throw new AppError(
           "CONFLICT",
-          availability === "ENDED" ? "Banner sudah berakhir. Pull baru tidak tersedia." : "Banner tidak aktif",
+          availability === "ENDED"
+            ? "Banner sudah berakhir. Pull baru tidak tersedia."
+            : "Banner tidak aktif",
         );
       }
       const pool = poolFromEntries(banner.entries);
@@ -136,7 +173,9 @@ export async function performPull(params: {
         await tx.$executeRaw`
           INSERT INTO "StepUpProgress" ("userId", "bannerId", "currentStage", "cyclesCompleted", "updatedAt")
           VALUES (${userId}, ${bannerId}, 1, 0, NOW()) ON CONFLICT DO NOTHING`;
-        const progress = await tx.stepUpProgress.findUniqueOrThrow({ where: { userId_bannerId: { userId, bannerId } } });
+        const progress = await tx.stepUpProgress.findUniqueOrThrow({
+          where: { userId_bannerId: { userId, bannerId } },
+        });
         stepNumber = progress.currentStage;
         stage = banner.stepUpStages.find((s) => s.stage === stepNumber);
         if (!stage || banner.stepUpStages.length !== STEP_UP_STAGES) {
@@ -145,9 +184,13 @@ export async function performPull(params: {
         const { next, cycleCompleted } = nextStepStage(stepNumber);
         const moved = await tx.stepUpProgress.updateMany({
           where: { userId, bannerId, currentStage: stepNumber },
-          data: { currentStage: next, cyclesCompleted: cycleCompleted ? { increment: 1 } : undefined },
+          data: {
+            currentStage: next,
+            cyclesCompleted: cycleCompleted ? { increment: 1 } : undefined,
+          },
         });
-        if (moved.count === 0) throw new AppError("CONFLICT", "Pull step-up lain sedang diproses. Coba lagi.");
+        if (moved.count === 0)
+          throw new AppError("CONFLICT", "Pull step-up lain sedang diproses. Coba lagi.");
       }
 
       const { price, count } = pullCost(pullType, banner, stage);
@@ -169,7 +212,12 @@ export async function performPull(params: {
 
       let results = rollMany(pool, count, rng);
       if (pullType === "STEP_UP" && stepNumber === STEP_UP_STAGES) {
-        results = applySixStarGuarantee(results, pool, { requireFeatured: banner.stepUpGuaranteeFeatured }, rng);
+        results = applySixStarGuarantee(
+          results,
+          pool,
+          { requireFeatured: banner.stepUpGuaranteeFeatured },
+          rng,
+        );
       }
 
       const shardConfig = await getShardConfig(tx);
@@ -232,7 +280,9 @@ export async function performPull(params: {
     return outcome(pullId, userId, false);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      const again = await prisma.gachaPull.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } } });
+      const again = await prisma.gachaPull.findUnique({
+        where: { userId_idempotencyKey: { userId, idempotencyKey } },
+      });
       if (again) return outcome(again.id, userId, true);
       throw new AppError("CONFLICT", "Request bertabrakan dengan request lain. Coba lagi.");
     }
@@ -249,7 +299,10 @@ export async function listPullHistory(userId: string, page: number, pageSize: nu
       take: pageSize,
       include: {
         banner: { select: { name: true } },
-        results: { orderBy: { position: "asc" }, include: { character: { select: { name: true, rarity: true, imageUrl: true } } } },
+        results: {
+          orderBy: { position: "asc" },
+          include: { character: { select: { name: true, rarity: true, imageUrl: true } } },
+        },
       },
     }),
     prisma.gachaPull.count({ where: { userId } }),

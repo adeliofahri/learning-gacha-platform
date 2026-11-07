@@ -28,7 +28,10 @@ export const questionSchema = z
         type: z.literal("MULTIPLE_CHOICE"),
         options: z
           .array(
-            z.object({ text: z.string().trim().min(1, "Teks pilihan wajib diisi").max(500), isCorrect: z.boolean() }),
+            z.object({
+              text: z.string().trim().min(1, "Teks pilihan wajib diisi").max(500),
+              isCorrect: z.boolean(),
+            }),
           )
           .min(2, "Minimal 2 pilihan")
           .max(8, "Maksimal 8 pilihan"),
@@ -44,7 +47,11 @@ export const questionSchema = z
   ])
   .superRefine((q, ctx) => {
     if (q.type === "MULTIPLE_CHOICE" && q.options.filter((o) => o.isCorrect).length !== 1) {
-      ctx.addIssue({ code: "custom", path: ["options"], message: "Harus ada tepat satu jawaban benar" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "Harus ada tepat satu jawaban benar",
+      });
     }
   });
 
