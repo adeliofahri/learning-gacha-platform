@@ -19,10 +19,12 @@ type Q = {
   status: string;
   difficulty: keyof typeof DIFFICULTY_LABEL;
 };
+
 type Values = {
   id?: string;
   title: string;
   description: string;
+  coverImageUrl: string;
   subjectId: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   questionIds: string[];
@@ -42,6 +44,7 @@ export function PackageForm({
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<string[]>(initial?.questionIds ?? []);
+
   const form = useForm<Omit<Values, "questionIds">>({
     defaultValues: {
       title: initial?.title ?? "",
@@ -67,6 +70,43 @@ export function PackageForm({
       return next;
     });
 
+  const [coverImageUrl, setCoverImageUrl] = useState(
+    initial?.coverImageUrl ?? "",
+  );
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  async function handleCoverUpload(file: File | undefined) {
+    if (!file) return;
+
+    setError(null);
+    setUploadingCover(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/admin/uploads", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ?? "Gagal mengunggah gambar",
+        );
+      }
+
+      setCoverImageUrl(data.url);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   return (
     <form
       className="grid gap-6 lg:grid-cols-2"
@@ -77,6 +117,7 @@ export function PackageForm({
           ...values,
           subjectId: values.subjectId || null,
           description: values.description || null,
+          coverImageUrl: coverImageUrl || null,
           questionIds: items,
         };
         try {
@@ -114,6 +155,68 @@ export function PackageForm({
           <div className="space-y-1.5">
             <Label htmlFor="description">Deskripsi</Label>
             <Textarea id="description" rows={3} {...form.register("description")} />
+          </div>
+          <div className="space-y-3">
+            <Label htmlFor="coverImage">Cover paket</Label>
+
+            {coverImageUrl ? (
+              <div className="relative overflow-hidden rounded-xl border">
+                <img
+                  src={coverImageUrl}
+                  alt="Preview cover paket"
+                  className="aspect-video w-full object-cover"
+                />
+
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute right-3 top-3"
+                  onClick={() => setCoverImageUrl("")}
+                >
+                  <X />
+                  Hapus gambar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed bg-muted">
+                <div className="text-center">
+                  <p className="font-semibold">Belum ada gambar custom</p>
+                  <p className="text-muted-foreground text-xs">
+                    Cover default akan digunakan berdasarkan mata pelajaran.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <label
+              htmlFor="coverImage"
+              className="inline-flex cursor-pointer items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              {uploadingCover ? "Mengunggah gambar..." : "Pilih gambar"}
+            </label>
+
+            <input
+              id="coverImage"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={uploadingCover}
+              className="hidden"
+              onChange={(e) => {
+                void handleCoverUpload(e.target.files?.[0]);
+                e.currentTarget.value = "";
+              }}
+            />
+
+            <p className="text-muted-foreground text-xs">
+              Format PNG, JPG, atau WebP. Maksimal 2 MB.
+            </p>
+
+            {uploadingCover && (
+              <p className="text-sm text-muted-foreground">
+                Mengunggah gambar...
+              </p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -202,8 +305,15 @@ export function PackageForm({
           </div>
           {error && <Alert variant="error">{error}</Alert>}
           {saved && <Alert variant="success">Paket tersimpan.</Alert>}
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? "Menyimpan…" : "Simpan paket"}
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting || uploadingCover}
+          >
+            {uploadingCover
+              ? "Mengunggah gambar..."
+              : form.formState.isSubmitting
+                ? "Menyimpan..."
+                : "Simpan paket"}
           </Button>
         </CardContent>
       </Card>

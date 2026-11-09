@@ -20,6 +20,8 @@ import {
 import { applyWalletChange } from "./wallet.service";
 import { logAudit } from "./audit.service";
 
+const QUESTION_COOLDOWN_MS = 120_000;
+
 // ───────────────────────────── Konfigurasi ─────────────────────────────
 
 export async function getDifficultyConfig(
@@ -29,6 +31,102 @@ export async function getDifficultyConfig(
   const config: DifficultyBountyConfig = { EASY: 5, MEDIUM: 10, HARD: 20, EXPERT: 35 };
   for (const r of rows) config[r.difficulty] = r.bounty;
   return config;
+}
+
+export async function getQuestionUnlockCost(
+  db: Tx | typeof prisma = prisma,
+): Promise<number> {
+  const config = await db.questionUnlockConfig.findUnique({
+    where: { id: "default" },
+  });
+
+  return config?.shardCost ?? 1;
+}
+
+export async function unlockQuestionCooldown(params: {
+  userId: string;
+  questionId: string;
+}) {
+  return transaction(async (tx) => {
+    const { userId, questionId } = params;
+
+    // Gunakan lock yang sama dengan submitAttempt dan reviewAttempt.
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${userId}),
+        hashtext(${questionId})
+      )
+    `;
+
+    const question = await tx.question.findFirst({
+      where: {
+        id: questionId,
+        status: "PUBLISHED",
+      },
+      select: { id: true },
+    });
+
+    if (!question) throw notFound("Soal");
+
+    const cooldown = await tx.questionCooldown.findUnique({
+      where: {
+        userId_questionId: { userId, questionId },
+      },
+    });
+
+    const now = new Date();
+
+    // Tidak ada cooldown aktif: tidak perlu membayar.
+    if (!cooldown || cooldown.expiresAt <= now) {
+      if (cooldown) {
+        await tx.questionCooldown.delete({
+          where: { id: cooldown.id },
+        });
+      }
+
+      const wallet = await tx.wallet.findUnique({
+        where: { userId },
+        select: { shards: true },
+      });
+
+      return {
+        unlocked: true,
+        charged: 0,
+        shards: wallet?.shards ?? 0,
+      };
+    }
+
+    const cost = await getQuestionUnlockCost(tx);
+
+    // Jangan memanggil applyWalletChange dengan nominal 0.
+    if (cost > 0) {
+      await applyWalletChange(tx, {
+        userId,
+        currency: "SHARD",
+        amount: -cost,
+        type: "SHARD_SPEND",
+        referenceType: "QuestionCooldown",
+        referenceId: cooldown.id,
+        description: "Membuka cooldown soal",
+        metadata: { questionId },
+      });
+    }
+
+    await tx.questionCooldown.delete({
+      where: { id: cooldown.id },
+    });
+
+    const wallet = await tx.wallet.findUnique({
+      where: { userId },
+      select: { shards: true },
+    });
+
+    return {
+      unlocked: true,
+      charged: cost,
+      shards: wallet?.shards ?? 0,
+    };
+  });
 }
 
 // ───────────────────────────── Subject & Topic ─────────────────────────────
@@ -331,6 +429,7 @@ export async function createPackage(adminId: string, input: PackageInput) {
       data: {
         title: input.title,
         description: input.description || null,
+        coverImageUrl: input.coverImageUrl || null,
         subjectId: input.subjectId || null,
         status: input.status,
       },
@@ -356,6 +455,7 @@ export async function updatePackage(adminId: string, id: string, input: PackageI
       data: {
         title: input.title,
         description: input.description || null,
+        coverImageUrl: input.coverImageUrl || null,
         subjectId: input.subjectId || null,
         status: input.status,
       },
@@ -369,6 +469,54 @@ export async function updatePackage(adminId: string, id: string, input: PackageI
       metadata: { status: pkg.status, questionCount: input.questionIds.length },
     });
     return pkg;
+  });
+}
+
+export async function deletePackage(adminId: string, id: string) {
+  return transaction(async (tx) => {
+    const pkg = await tx.package.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            items: true,
+            progress: true,
+            attempts: true,
+          },
+        },
+      },
+    });
+
+    if (!pkg) throw notFound("Paket");
+
+    const result = {
+      packageId: pkg.id,
+      title: pkg.title,
+      questionCount: pkg._count.items,
+      affectedStudents: pkg._count.progress,
+      preservedAttempts: pkg._count.attempts,
+    };
+
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "PACKAGE_DELETE",
+      targetType: "Package",
+      targetId: id,
+      metadata: {
+        title: pkg.title,
+        questionCount: result.questionCount,
+        affectedStudents: result.affectedStudents,
+        preservedAttempts: result.preservedAttempts,
+      },
+    });
+
+    // PackageQuestion dan PackageProgress akan terhapus melalui onDelete: Cascade.
+    // Attempt tetap ada dan packageId menjadi null melalui onDelete: SetNull.
+    await tx.package.delete({
+      where: { id },
+    });
+
+    return result;
   });
 }
 
@@ -429,6 +577,7 @@ export async function listPackagesForStudent(
     id: p.id,
     title: p.title,
     description: p.description,
+    coverImageUrl: p.coverImageUrl,
     subject: p.subject?.name ?? null,
     difficulties: Array.from(new Set(p.items.map((i) => i.question.difficulty))),
     progress: packageProgress(
@@ -458,6 +607,8 @@ export type StudentQuestionView = {
     reviewedAt: Date | null;
     answerText: string | null;
   } | null;
+  cooldownUntil: string | null;
+  unlockCost: number;
 };
 
 export async function getPackageForStudent(userId: string, packageId: string) {
@@ -477,8 +628,29 @@ export async function getPackageForStudent(userId: string, packageId: string) {
     },
   });
   if (!pkg) throw notFound("Paket");
+  const unlockCost = await getQuestionUnlockCost();
   const ids = pkg.items.map((i) => i.questionId);
   const { result, solved } = await statusMap(userId, ids);
+
+  const cooldownRows = await prisma.questionCooldown.findMany({
+  where: {
+    userId,
+    questionId: { in: ids },
+    expiresAt: { gt: new Date() },
+  },
+  select: {
+    questionId: true,
+    expiresAt: true,
+    },
+  });
+
+  const cooldownByQ = new Map(
+    cooldownRows.map((row) => [
+      row.questionId,
+      row.expiresAt.toISOString(),
+    ]),
+  );
+
   const lastShort = await prisma.attempt.findMany({
     where: { userId, questionId: { in: ids }, answerText: { not: null }, isPractice: false },
     orderBy: { createdAt: "desc" },
@@ -514,12 +686,16 @@ export async function getPackageForStudent(userId: string, packageId: string) {
             answerText: last.answerText,
           }
         : null,
+        cooldownUntil: cooldownByQ.get(q.id) ?? null,
+        unlockCost,
     };
+
   });
   return {
     id: pkg.id,
     title: pkg.title,
     description: pkg.description,
+    coverImageUrl: pkg.coverImageUrl,
     subject: pkg.subject?.name ?? null,
     questions,
     progress: packageProgress(ids, solved),
@@ -539,6 +715,8 @@ export type AttemptResult = {
   acceptedAnswers: string[];
   coins: number;
   replayed: boolean;
+
+  cooldownUntil: string | null;
 };
 
 async function buildAttemptResult(attemptId: string, replayed: boolean): Promise<AttemptResult> {
@@ -553,6 +731,19 @@ async function buildAttemptResult(attemptId: string, replayed: boolean): Promise
   const solvedNow = await prisma.questionSolve.findUnique({
     where: { userId_questionId: { userId: a.userId, questionId: a.questionId } },
   });
+  const cooldown = await prisma.questionCooldown.findUnique({
+  where: {
+    userId_questionId: {
+      userId: a.userId,
+      questionId: a.questionId,
+    },
+  },
+  });
+
+  const cooldownUntil =
+  cooldown && cooldown.expiresAt > new Date()
+    ? cooldown.expiresAt.toISOString()
+    : null;
   const reveal = Boolean(solvedNow) && a.status !== "PENDING_REVIEW";
   return {
     attemptId: a.id,
@@ -573,6 +764,7 @@ async function buildAttemptResult(attemptId: string, replayed: boolean): Promise
         : [],
     coins: a.user.wallet?.coins ?? 0,
     replayed,
+    cooldownUntil,
   };
 }
 
@@ -653,8 +845,34 @@ export async function submitAttempt(params: {
   };
 
   const run = () =>
-    transaction(async (tx) => {
-      const alreadySolved = Boolean(
+  transaction(async (tx) => {
+    // Mengunci kombinasi siswa dan soal agar request bersamaan
+    // tidak bisa melewati pemeriksaan cooldown.
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${userId}),
+        hashtext(${questionId})
+      )
+    `;
+
+    const existingCooldown = await tx.questionCooldown.findUnique({
+      where: {
+        userId_questionId: { userId, questionId },
+      },
+    });
+
+    if (existingCooldown && existingCooldown.expiresAt > new Date()) {
+      const remaining = Math.ceil(
+        (existingCooldown.expiresAt.getTime() - Date.now()) / 1000,
+      );
+
+      throw new AppError(
+        "CONFLICT",
+        `Soal ini sedang cooldown. Coba lagi dalam ${remaining} detik.`,
+      );
+    }
+
+    const alreadySolved = Boolean(
         await tx.questionSolve.findUnique({ where: { userId_questionId: { userId, questionId } } }),
       );
 
@@ -694,6 +912,24 @@ export async function submitAttempt(params: {
         },
       });
 
+      if (status === "INCORRECT") {
+        const expiresAt = new Date(Date.now() + QUESTION_COOLDOWN_MS);
+
+        await tx.questionCooldown.upsert({
+          where: {
+            userId_questionId: { userId, questionId },
+          },
+          create: {
+            userId,
+            questionId,
+            expiresAt,
+          },
+          update: {
+            expiresAt,
+          },
+        });
+      }
+      
       if (status === "CORRECT" && !alreadySolved && question.type === "MULTIPLE_CHOICE") {
         await awardSolve(tx, {
           userId,
@@ -762,6 +998,12 @@ export async function reviewAttempt(params: {
         include: { question: true },
       });
       if (!attempt) throw notFound("Jawaban");
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtext(${attempt.userId}),
+          hashtext(${attempt.questionId})
+        )
+      `;
       // Update bersyarat: hanya satu reviewer yang bisa memproses attempt ini.
       const updated = await tx.attempt.updateMany({
         where: { id: params.attemptId, status: "PENDING_REVIEW" },
@@ -774,6 +1016,26 @@ export async function reviewAttempt(params: {
       });
       if (updated.count === 0) throw new AppError("CONFLICT", "Jawaban ini sudah direview");
 
+      if (params.decision === "REJECT") {
+        const expiresAt = new Date(Date.now() + QUESTION_COOLDOWN_MS);
+
+        await tx.questionCooldown.upsert({
+          where: {
+            userId_questionId: {
+              userId: attempt.userId,
+              questionId: attempt.questionId,
+            },
+          },
+          create: {
+            userId: attempt.userId,
+            questionId: attempt.questionId,
+            expiresAt,
+          },
+          update: {
+            expiresAt,
+          },
+        });
+      }
       let bountyAwarded = 0;
       if (params.decision === "APPROVE") {
         const solved = await tx.questionSolve.findUnique({
@@ -809,10 +1071,24 @@ export async function reviewAttempt(params: {
 // ───────────────────────────── Statistik siswa ─────────────────────────────
 
 export async function getLearningSummary(userId: string) {
+  const account = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { statsResetAt: true },
+  });
+
+  const statsResetAt = account?.statsResetAt ?? new Date(0);
   const [solvedCount, publishedCount, pendingCount, recent] = await Promise.all([
     prisma.questionSolve.count({ where: { userId } }),
     prisma.question.count({ where: { status: "PUBLISHED" } }),
-    prisma.attempt.count({ where: { userId, status: "PENDING_REVIEW" } }),
+
+    prisma.attempt.count({
+      where: {
+        userId,
+        status: "PENDING_REVIEW",
+        createdAt: { gte: statsResetAt },
+      },
+    }),
+
     prisma.packageProgress.findMany({
       where: { userId, package: { status: "PUBLISHED" } },
       orderBy: { lastActivityAt: "desc" },

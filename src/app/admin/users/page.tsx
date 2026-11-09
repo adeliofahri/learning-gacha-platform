@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState, PageHeader, Pagination, Table, Td, Th } from "@/components/ui/misc";
 import { listStudents } from "@/server/services/admin.service";
 import { clampPage, firstParam, formatDate } from "@/lib/utils";
+import { ResetAllStudentStatsButton } from "@/components/admin/user-actions";
 
 export const metadata = { title: "Siswa" };
 const PAGE_SIZE = 20;
@@ -24,6 +25,10 @@ export default async function AdminUsersPage({
         title="Manajemen siswa"
         description="Data privat (email) hanya terlihat oleh admin."
       />
+
+      <div className="mb-6">
+        <ResetAllStudentStatsButton />
+      </div>
       <form method="get" className="mb-4 flex gap-2" role="search">
         <Input
           name="q"

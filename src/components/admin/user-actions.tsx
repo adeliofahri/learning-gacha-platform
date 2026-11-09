@@ -109,3 +109,106 @@ export function UserStatusToggle({
     </div>
   );
 }
+
+export function ResetAllStudentStatsButton() {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleReset() {
+    const confirmed = window.confirm(
+      "PERINGATAN!\n\n" +
+        "Seluruh statistik SEMUA SISWA akan direset, termasuk:\n" +
+        "- Koin dan shard\n" +
+        "- Koleksi karakter\n" +
+        "- Progres belajar dan leaderboard\n" +
+        "- Progres Step-Up dan cooldown\n" +
+        "- Avatar karakter\n\n" +
+        "Riwayat jawaban, transaksi, dan gacha tetap disimpan.\n\n" +
+        "Operasi ini tidak dapat dibatalkan. Lanjutkan?",
+    );
+
+    if (!confirmed) return;
+
+    const secondConfirmation = window.confirm(
+      'Apakah kamu benar-benar yakin ingin mereset seluruh statistik siswa?'
+    );
+
+    if (!secondConfirmation) return;
+
+    setPending(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await apiFetch<{
+        ok: boolean;
+        result: {
+          studentsReset: number;
+          inventoryItemsDeleted: number;
+          solvesDeleted: number;
+          packageProgressDeleted: number;
+          stepUpProgressDeleted: number;
+          cooldownsDeleted: number;
+          coinsRemoved: number;
+          shardsRemoved: number;
+        };
+      }>("/api/admin/students/reset-stats", {
+        method: "POST",
+      });
+
+      const r = response.result;
+
+      setMessage(
+        `Reset berhasil. ${r.studentsReset} siswa diproses, ` +
+          `${r.inventoryItemsDeleted} item karakter dihapus, ` +
+          `${r.solvesDeleted} progres soal dihapus, ` +
+          `${r.packageProgressDeleted} progres paket dihapus, ` +
+          `${r.coinsRemoved} koin dan ${r.shardsRemoved} shard direset.`,
+      );
+
+      router.refresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-destructive/40 p-4">
+      <div>
+        <h3 className="font-semibold text-destructive">
+          Reset seluruh statistik siswa
+        </h3>
+
+        <p className="text-sm text-muted-foreground">
+          Mengatur ulang saldo, koleksi karakter, progres belajar,
+          leaderboard, dan statistik seluruh akun siswa.
+          Riwayat aktivitas tetap disimpan.
+        </p>
+      </div>
+
+      <Button
+        variant="destructive"
+        disabled={pending}
+        onClick={handleReset}
+      >
+        {pending ? "Sedang mereset..." : "Reset seluruh statistik"}
+      </Button>
+
+      {message && (
+        <Alert variant="success">
+          {message}
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="error">
+          {error}
+        </Alert>
+      )}
+    </div>
+  );
+}

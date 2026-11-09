@@ -23,7 +23,7 @@ export function CharacterForm({
   lockRarity = false,
 }: {
   library: string[];
-  initial?: Required<FormIn> & { id: string };
+  initial?: FormIn & { id: string };
   lockRarity?: boolean;
 }) {
   const router = useRouter();
@@ -32,17 +32,39 @@ export function CharacterForm({
   const [uploading, setUploading] = useState(false);
   const form = useForm<FormIn, unknown, CharacterInput>({
     resolver: zodResolver(characterSchema),
-    defaultValues: initial ?? {
-      name: "",
-      description: "",
-      rarity: 3,
-      imageUrl: library[0] ?? "",
-      category: "PERMANENT",
-      status: "ACTIVE",
-    },
+    defaultValues: initial
+    ? {
+        name: initial.name,
+        description: initial.description,
+        rarity: initial.rarity,
+        imageUrl: initial.imageUrl,
+        category: initial.category,
+        status: initial.status,
+      }
+    : {
+        name: "",
+        description: "",
+        rarity: 3,
+        imageUrl: library[0] ?? "",
+        category: "PERMANENT",
+        status: "ACTIVE",
+      },
   });
   const v = form.watch();
   const { errors } = form.formState;
+
+  function onInvalid(errors: typeof form.formState.errors) {
+    console.error("Character form validation failed:", errors);
+
+    const firstError = Object.values(errors).find(
+      (error) => error?.message,
+    );
+
+    setError(
+      firstError?.message?.toString() ??
+        "Data karakter tidak valid. Periksa kembali seluruh kolom.",
+    );
+  }
 
   async function upload(file: File) {
     setError(null);
@@ -71,23 +93,46 @@ export function CharacterForm({
   return (
     <form
       className="grid gap-6 lg:grid-cols-[1fr_280px]"
-      onSubmit={form.handleSubmit(async (values) => {
-        setError(null);
-        setSaved(false);
-        try {
-          if (initial) {
-            await apiFetch(`/api/admin/characters/${initial.id}`, { method: "PUT", body: values });
-            setSaved(true);
-            router.refresh();
-          } else {
-            await apiFetch("/api/admin/characters", { body: values });
-            router.push("/admin/characters");
-            router.refresh();
+      onSubmit={form.handleSubmit(
+        async (values) => {
+          setError(null);
+          setSaved(false);
+
+          try {
+            if (initial) {
+              const { id, ...characterData } = values as FormIn & { id?: string };
+
+              await apiFetch(`/api/admin/characters/${initial.id}`, {
+                method: "PUT",
+                body: characterData,
+              });
+              setSaved(true);
+              router.refresh();
+            } else {
+              await apiFetch("/api/admin/characters", {
+                body: values,
+              });
+              router.push("/admin/characters");
+              router.refresh();
+            }
+          } catch (e) {
+            setError(errorMessage(e));
+            console.error("Character save failed:", e);
           }
-        } catch (e) {
-          setError(errorMessage(e));
-        }
-      })}
+        },
+        (errors) => {
+          console.error("Character form validation failed:", errors);
+
+          const firstError = Object.values(errors).find(
+            (error) => error?.message,
+          );
+
+          setError(
+            firstError?.message?.toString() ??
+              "Data karakter tidak valid. Periksa kembali seluruh kolom.",
+          );
+        },
+      )}
     >
       <Card>
         <CardHeader>

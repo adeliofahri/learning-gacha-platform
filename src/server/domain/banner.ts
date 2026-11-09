@@ -33,7 +33,13 @@ export type BannerValidationInput = {
   singlePrice: number;
   stepUpEnabled: boolean;
   stepUpGuaranteeFeatured: boolean;
-  entries: { rarity: number; weight: number; isFeatured: boolean; characterActive: boolean }[];
+  entries: {
+    rarity: number;
+    weight: number;
+    isFeatured: boolean;
+    characterActive: boolean;
+    category: "PERMANENT" | "LIMITED";
+  }[];
   stages: { stage: number; price: number; pullCount: number }[];
 };
 
@@ -42,8 +48,10 @@ export function validateBannerForPublish(b: BannerValidationInput): string[] {
   const errors: string[] = [];
   if (!Number.isInteger(b.singlePrice) || b.singlePrice <= 0) errors.push("Harga single harus > 0");
   if (b.entries.length === 0) errors.push("Banner harus memiliki minimal satu karakter");
-  if (b.entries.some((e) => !Number.isInteger(e.weight) || e.weight <= 0)) {
-    errors.push("Semua weight harus bilangan bulat > 0");
+  if (b.entries.some((e) => e.category !== b.type)) {
+    errors.push(
+      "Kategori karakter harus sesuai dengan tipe banner (Permanent atau Limited)",
+    );
   }
   if (b.entries.some((e) => !e.characterActive)) {
     errors.push("Karakter yang diarsipkan tidak boleh ada di banner yang dipublikasikan");

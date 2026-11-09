@@ -61,11 +61,11 @@ export default async function GachaHistoryPage({
                     {p.results.map((r) => (
                       <span
                         key={r.id}
-                        title={`${r.character.name} (${r.rarity}★)${r.isNew ? " — baru" : ` — duplikat +${r.shardsAwarded} shard`}`}
+                        title={`${r.characterName} (${r.rarity}★)${r.isNew ? " — baru" : ` — dikonversi menjadi ${r.shardsAwarded} SHARD`}`}
                       >
                         <CharacterImage
-                          src={r.character.imageUrl}
-                          name={`${r.character.name} ${r.rarity}★`}
+                          src={r.characterImageUrl}
+                          name={`${r.characterName} ${r.rarity}★`}
                           size={32}
                         />
                       </span>

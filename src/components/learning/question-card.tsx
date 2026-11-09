@@ -1,14 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Unlock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { Alert } from "@/components/ui/misc";
-import { CoinAmount } from "@/components/shared/currency";
+import { CoinAmount, ShardAmount } from "@/components/shared/currency";
 import { apiFetch, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 import { emitWalletUpdate } from "@/lib/wallet-events";
 import { DIFFICULTY_LABEL, QUESTION_PROGRESS_LABEL, QUESTION_TYPE_LABEL } from "@/lib/constants";
@@ -23,6 +23,7 @@ type AttemptResult = {
   explanation: string | null;
   acceptedAnswers: string[];
   coins: number;
+  cooldownUntil: string | null;
 };
 
 const STATUS_VARIANT = {
@@ -42,6 +43,44 @@ export function QuestionCard({
   const router = useRouter();
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState<number | null>(null);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  // Hasil terbaru dari server menjadi sumber utama.
+  const cooldownUntil = unlocked
+    ? null
+    : result
+      ? result.cooldownUntil
+      : question.cooldownUntil;
+
+  useEffect(() => {
+    setNow(Date.now());
+
+    if (!cooldownUntil) return;
+
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil]);
+
+  const remainingSeconds =
+    now !== null && cooldownUntil
+      ? Math.max(
+          0,
+          Math.ceil((Date.parse(cooldownUntil) - now) / 1000),
+        )
+      : 0;
+
+  const cooldownActive = remainingSeconds > 0;
+
+  const cooldownLabel = `${Math.floor(remainingSeconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(remainingSeconds % 60)
+    .toString()
+    .padStart(2, "0")}`;
+    
   const form = useForm<{ optionId: string; answerText: string }>({
     defaultValues: { optionId: "", answerText: "" },
   });
@@ -60,11 +99,33 @@ export function QuestionCard({
   const pending = status === "PENDING_REVIEW";
   const correctOptionId = result?.correctOptionId ?? question.correctOptionId;
   const explanation = result?.explanation ?? question.explanation;
-  const accepted = result?.acceptedAnswers.length
+  const accepted = result?.acceptedAnswers?.length
     ? result.acceptedAnswers
-    : question.acceptedAnswers;
+    : question.acceptedAnswers ?? [];
   const selected = form.watch("optionId");
 
+  async function handleUnlock() {
+    setError(null);
+    setIsUnlocking(true);
+
+    try {
+      const r = await apiFetch<{
+        unlocked: boolean;
+        charged: number;
+        shards: number;
+      }>(`/api/questions/${question.id}/unlock`, {
+        method: "POST",
+      });
+
+      setUnlocked(true);
+      emitWalletUpdate({ shards: r.shards });
+      router.refresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setIsUnlocking(false);
+    }
+  }
   return (
     <Card data-testid={`question-${question.order}`}>
       <CardHeader>
@@ -114,6 +175,7 @@ export function QuestionCard({
                 body,
                 idempotencyKey: newIdempotencyKey(),
               });
+              setUnlocked(false);
               setResult(r);
               emitWalletUpdate({ coins: r.coins });
               router.refresh();
@@ -123,7 +185,7 @@ export function QuestionCard({
           })}
         >
           {question.type === "MULTIPLE_CHOICE" ? (
-            <fieldset className="space-y-2">
+            <fieldset className="space-y-2" disabled={cooldownActive}>
               <legend className="sr-only">Pilihan jawaban</legend>
               {question.options.map((o, i) => (
                 <label
@@ -157,7 +219,7 @@ export function QuestionCard({
               <Textarea
                 id={`answer-${question.id}`}
                 maxLength={2000}
-                disabled={pending}
+                disabled={pending || cooldownActive}
                 {...form.register("answerText")}
               />
               {question.lastReview?.status === "REJECTED" && !result && (
@@ -177,8 +239,56 @@ export function QuestionCard({
           {error && <Alert variant="error">{error}</Alert>}
           {result && <ResultBanner result={result} />}
 
+          {cooldownActive && (
+            <Alert variant="warning" title="Cooldown aktif">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-4" aria-hidden />
+                  <span>
+                    Kamu bisa mencoba soal ini kembali dalam{" "}
+                    <strong
+                      className="font-mono tabular-nums"
+                      data-testid="question-cooldown"
+                    >
+                      {cooldownLabel}
+                    </strong>.
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleUnlock}
+                    disabled={isUnlocking || isSubmitting}
+                  >
+                    <Unlock className="mr-2 size-4" />
+                    {isUnlocking
+                      ? "Membuka..."
+                      : question.unlockCost === 0
+                        ? "Buka gratis"
+                        : "Buka dengan SHARD"}
+                  </Button>
+
+                  {question.unlockCost > 0 ? (
+                    <span className="text-sm">
+                      Biaya: <ShardAmount value={question.unlockCost} />
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Tidak dikenakan biaya
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Alert>
+          )}
+
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={isSubmitting || pending}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || pending || cooldownActive}
+            >
               {isSubmitting ? "Mengirim…" : solved ? "Latihan lagi" : "Kirim jawaban"}
             </Button>
             {solved && (

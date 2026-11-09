@@ -1,6 +1,9 @@
+"use client";
+
 import { Star } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
+import { useRarityStyles } from "@/components/shared/rarity-style-provider";
 
 export const RARITY_STYLE: Record<number, string> = {
   1: "from-slate-200 to-slate-400 ring-slate-300",
@@ -11,7 +14,13 @@ export const RARITY_STYLE: Record<number, string> = {
   6: "from-rose-200 via-fuchsia-300 to-amber-300 ring-rose-400",
 };
 
-export function RarityStars({ rarity, className }: { rarity: number; className?: string }) {
+export function RarityStars({
+  rarity,
+  className,
+}: {
+  rarity: number;
+  className?: string;
+}) {
   return (
     <span
       className={cn("inline-flex items-center gap-0.5", className)}
@@ -19,7 +28,11 @@ export function RarityStars({ rarity, className }: { rarity: number; className?:
       title={`${rarity}★`}
     >
       {Array.from({ length: rarity }, (_, i) => (
-        <Star key={i} className="size-3.5 fill-amber-400 text-amber-500" aria-hidden />
+        <Star
+          key={i}
+          className="size-3.5 fill-amber-400 text-amber-500"
+          aria-hidden
+        />
       ))}
     </span>
   );
@@ -57,6 +70,26 @@ export function CharacterTile({
   footer?: React.ReactNode;
   className?: string;
 }) {
+  const styles = useRarityStyles();
+  const style = styles.find((item) => item.rarity === character.rarity);
+
+  const borderType = style?.borderType ?? "PRESET";
+  const borderConfig = style?.borderConfig;
+
+  const isSixStar = character.rarity === 6;
+
+  const colors =
+    borderConfig?.colors && borderConfig.colors.length >= 2
+      ? borderConfig.colors
+      : ["#A855F7", "#E11D48", "#FACC15"];
+
+  const angle = borderConfig?.angle ?? 0;
+
+  const animatedGradient = `conic-gradient(from calc(var(--rarity-angle) + ${angle}deg), ${colors.join(", ")})`;
+
+  const borderImageUrl =
+    borderType === "IMAGE" ? style?.borderImageUrl : null;
+
   return (
     <div
       className={cn(
@@ -65,12 +98,58 @@ export function CharacterTile({
       )}
     >
       <div
-        className={cn("rounded-xl bg-gradient-to-br p-1 ring-2", RARITY_STYLE[character.rarity])}
+        className={cn(
+          "relative size-[104px] rounded-xl p-1",
+          isSixStar && "rarity-six-animated",
+          !isSixStar &&
+            borderType === "PRESET" &&
+            cn("bg-gradient-to-br ring-2", RARITY_STYLE[character.rarity]),
+        )}
+        style={
+          isSixStar
+            ? { background: animatedGradient }
+            : borderType === "GRADIENT"
+              ? { background: `linear-gradient(${angle}deg, ${colors.join(", ")})` }
+              : undefined
+        }
       >
-        <CharacterImage src={character.imageUrl} name={character.name} size={96} />
+        {borderImageUrl ? (
+          <>
+            <div className="absolute inset-2 overflow-hidden rounded-lg">
+              <CharacterImage
+                src={character.imageUrl}
+                name={character.name}
+                size={88}
+                className="size-full rounded-lg"
+              />
+            </div>
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={borderImageUrl}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 size-full object-fill"
+            />
+          </>
+        ) : (
+          <div className="size-full overflow-hidden rounded-lg">
+            <CharacterImage
+              src={character.imageUrl}
+              name={character.name}
+              size={96}
+              className="size-full rounded-lg"
+            />
+          </div>
+        )}
       </div>
-      <p className="line-clamp-2 text-sm leading-tight font-semibold">{character.name}</p>
+
+      <p className="line-clamp-2 text-sm leading-tight font-semibold">
+        {character.name}
+      </p>
+
       <RarityStars rarity={character.rarity} />
+
       {footer}
     </div>
   );
@@ -87,13 +166,23 @@ export function Avatar({
 }) {
   if (src)
     return (
-      <CharacterImage src={src} name={`Avatar ${name}`} size={size} className="rounded-full" />
+      <CharacterImage
+        src={src}
+        name={`Avatar ${name}`}
+        size={size}
+        className="rounded-full"
+      />
     );
+
   return (
     <span
       aria-hidden
       className="bg-secondary text-secondary-foreground inline-flex items-center justify-center rounded-full font-bold"
-      style={{ width: size, height: size, fontSize: size / 2.4 }}
+      style={{
+        width: size,
+        height: size,
+        fontSize: size / 2.4,
+      }}
     >
       {name.slice(0, 1).toUpperCase()}
     </span>

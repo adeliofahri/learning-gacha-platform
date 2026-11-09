@@ -13,6 +13,7 @@ import { DIFFICULTY_LABEL } from "@/lib/constants";
 type Values = {
   bounties: Record<"EASY" | "MEDIUM" | "HARD" | "EXPERT", number>;
   shards: Record<"1" | "2" | "3" | "4" | "5" | "6", number>;
+  unlockShardCost: number;
 };
 
 export function SettingsForm({ initial }: { initial: Values }) {
@@ -73,6 +74,28 @@ export function SettingsForm({ initial }: { initial: Values }) {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Biaya membuka soal dengan SHARD</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Biaya yang harus dibayar siswa untuk melewati cooldown soal.
+            Isi 0 untuk membuka soal tanpa biaya.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="unlockShardCost">Biaya unlock</Label>
+            <Input
+              id="unlockShardCost"
+              type="number"
+              min={0}
+              max={100000}
+              className="w-32"
+              {...form.register("unlockShardCost", { valueAsNumber: true })}
+            />
+          </div>
         </CardContent>
       </Card>
       <div className="space-y-3 md:col-span-2">

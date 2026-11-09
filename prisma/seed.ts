@@ -3,7 +3,7 @@
  * adalah contoh dan WAJIB ditinjau admin sebelum production.
  */
 import { randomUUID } from "node:crypto";
-import { PrismaClient, type Difficulty } from "@prisma/client";
+import { Prisma, PrismaClient, type Difficulty } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import {
   DEMO_DIFFICULTY_BOUNTY,
@@ -398,6 +398,33 @@ async function main() {
       "Seed DEMO tidak boleh dijalankan di production (set ALLOW_DEMO_SEED=1 untuk memaksa).",
     );
   }
+
+  const defaultRarityStyles = [
+    { rarity: 1, borderType: "PRESET" as const },
+    { rarity: 2, borderType: "PRESET" as const },
+    { rarity: 3, borderType: "PRESET" as const },
+    { rarity: 4, borderType: "PRESET" as const },
+    { rarity: 5, borderType: "GRADIENT" as const },
+    { rarity: 6, borderType: "GRADIENT" as const },
+  ];
+
+  for (const style of defaultRarityStyles) {
+    await prisma.rarityStyle.upsert({
+      where: { rarity: style.rarity },
+      create: {
+        rarity: style.rarity,
+        borderType: style.borderType,
+        borderConfig:
+        style.rarity === 5
+          ? { colors: ["#FDE68A", "#F59E0B", "#B45309"], angle: 135 }
+          : style.rarity === 6
+            ? { colors: ["#A855F7", "#E11D48", "#FACC15"], angle: 135 }
+            : Prisma.DbNull,
+      },
+      update: {},
+    });
+  }
+
   const existing = await prisma.user.findUnique({ where: { email: ADMIN.email } });
   if (existing) {
     console.info(

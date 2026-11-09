@@ -1,23 +1,42 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/misc";
 import { CoinAmount } from "@/components/shared/currency";
 import { ClaimButton } from "@/components/shared/claim-button";
+import { DailyLoginRewardCard } from "@/components/shared/daily-login-reward-card";
 import { requireStudentPage } from "@/lib/auth/current-user";
 import { listEventsForStudent } from "@/server/services/event.service";
+import { getDailyLoginRewardStatus } from "@/server/services/daily-login-reward.service";
 import { formatDateTime } from "@/lib/utils";
 
 export const metadata = { title: "Event" };
 
 export default async function EventsPage() {
   const user = await requireStudentPage();
-  const events = await listEventsForStudent(user.id);
+
+  const [events, dailyReward] = await Promise.all([
+    listEventsForStudent(user.id),
+    getDailyLoginRewardStatus(user.id),
+  ]);
+
   return (
     <div>
       <PageHeader
         title="Event & bonus"
-        description="Klaim bonus koin dari event yang sedang berlangsung. Setiap bonus hanya bisa diklaim sekali."
+        description="Klaim reward harian dan bonus koin dari berbagai event."
       />
+
+      <DailyLoginRewardCard
+        amount={dailyReward.amount}
+        claimedAt={dailyReward.claimedAt}
+      />
+
       {events.length === 0 ? (
         <EmptyState
           title="Tidak ada event aktif"
@@ -36,18 +55,24 @@ export default async function EventsPage() {
                   ) : (
                     <Badge variant="secondary">Segera</Badge>
                   )}
+
                   {e.minSolved > 0 && (
-                    <Badge variant="secondary">Min. {e.minSolved} soal selesai</Badge>
+                    <Badge variant="secondary">
+                      Min. {e.minSolved} soal selesai
+                    </Badge>
                   )}
+
                   {e.maxClaims !== null && (
                     <Badge variant="outline">
                       Kuota {e._count.claims}/{e.maxClaims}
                     </Badge>
                   )}
                 </div>
+
                 <CardTitle>{e.name}</CardTitle>
                 <CardDescription>{e.description}</CardDescription>
               </CardHeader>
+
               <CardContent className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
                   <p>
@@ -57,6 +82,7 @@ export default async function EventsPage() {
                     {formatDateTime(e.startsAt)} — {formatDateTime(e.endsAt)}
                   </p>
                 </div>
+
                 {e.claimedAt ? (
                   <span className="text-muted-foreground text-sm">
                     Diklaim {formatDateTime(e.claimedAt)}

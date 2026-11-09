@@ -43,6 +43,57 @@ export async function updateEvent(adminId: string, id: string, input: EventInput
   });
 }
 
+export async function deleteEvent(adminId: string, id: string) {
+  return transaction(async (tx) => {
+    // Kunci baris Event agar tidak terjadi klaim bersamaan
+    // dengan proses penghapusan.
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "Event"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+
+    if (locked.length === 0) throw notFound("Event");
+
+    const event = await tx.event.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { claims: true } },
+      },
+    });
+
+    if (!event) throw notFound("Event");
+
+    if (event._count.claims > 0) {
+      throw new AppError(
+        "CONFLICT",
+        `Event tidak dapat dihapus karena sudah memiliki ${event._count.claims} klaim.`,
+      );
+    }
+
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "EVENT_DELETE",
+      targetType: "Event",
+      targetId: id,
+      metadata: {
+        name: event.name,
+        coinReward: event.coinReward,
+        claims: event._count.claims,
+      },
+    });
+
+    await tx.event.delete({
+      where: { id },
+    });
+
+    return {
+      id: event.id,
+      name: event.name,
+    };
+  });
+}
+
 export async function listEventsForStudent(userId: string, now = new Date()) {
   const [events, claims, solved] = await Promise.all([
     prisma.event.findMany({

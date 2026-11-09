@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, hashToken } from "@/lib/auth/session";
 import type { LoginInput, RegisterInput } from "@/lib/validation/auth";
+import { applyWalletChange } from "./wallet.service";
 
 /** Registrasi publik SELALU membuat STUDENT. Tidak ada jalur publik untuk ADMIN. */
 export async function registerStudent(input: RegisterInput) {
@@ -25,21 +26,58 @@ export async function registerStudent(input: RegisterInput) {
   }
 }
 
+function getWibDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")!.value;
+  const month = parts.find((part) => part.type === "month")!.value;
+  const day = parts.find((part) => part.type === "day")!.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+
+
 export async function login(input: LoginInput) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
-    select: { id: true, username: true, role: true, status: true, passwordHash: true },
+    select: {
+      id: true,
+      username: true,
+      role: true,
+      status: true,
+      passwordHash: true,
+    },
   });
+
   if (!user) {
     await burnPasswordCheck(input.password);
     throw new AppError("UNAUTHORIZED", "Email atau password salah");
   }
+
   const ok = await verifyPassword(user.passwordHash, input.password);
   if (!ok) throw new AppError("UNAUTHORIZED", "Email atau password salah");
-  if (user.status !== "ACTIVE")
+
+  if (user.status !== "ACTIVE") {
     throw new AppError("FORBIDDEN", "Akun dinonaktifkan. Hubungi admin.");
+  }
+
+
   const session = await createSession(user.id);
-  return { user: { id: user.id, username: user.username, role: user.role }, session };
+
+  return {
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    },
+    session,
+  };
 }
 
 /** Pembuatan admin hanya lewat seed / CLI lokal (scripts/create-admin.ts). */

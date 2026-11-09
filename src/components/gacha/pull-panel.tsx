@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +19,13 @@ import { apiFetch, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 import { PULL_TYPE_LABEL } from "@/lib/constants";
 import { emitWalletUpdate } from "@/lib/wallet-events";
 import { cn } from "@/lib/utils/cn";
+import { Sparkles, Volume2, VolumeX } from "lucide-react";
+import { ArcadePullOverlay } from "@/components/gacha/arcade-pull-overlay";
+import {
+  playArcadeReveal,
+  playArcadeSpin,
+  playArcadeStart,
+} from "@/lib/arcade-audio";
 
 type PullType = "SINGLE" | "TEN_PULL" | "STEP_UP";
 type Stage = { stage: number; price: number; pullCount: number };
@@ -60,12 +66,18 @@ export function PullPanel(props: {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PullResponse | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
+  const [arcadePhase, setArcadePhase] = useState<
+    "spinning" | "revealing" | null
+  >(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   // Saldo & tahap step-up lokal diperbarui dari respons server (tidak menunggu router.refresh).
   const [coins, setCoins] = useState(props.coins);
   const [stage, setStage] = useState(props.stepUp?.currentStage ?? 1);
   const [cycles, setCycles] = useState(props.stepUp?.cyclesCompleted ?? 0);
   const currentStage = props.stepUp?.stages.find((s) => s.stage === stage);
 
+  const [revealRarity, setRevealRarity] = useState(3);
+  
   const ask = (type: PullType, price: number, count: number) => {
     setError(null);
     setIdempotencyKey(newIdempotencyKey()); // satu key per konfirmasi → retry jaringan aman
@@ -73,24 +85,78 @@ export function PullPanel(props: {
   };
 
   const doPull = async () => {
-    if (!confirm) return;
+    if (!confirm || pending) return;
+
     setPending(true);
     setError(null);
+    setArcadePhase("spinning");
+
+    let stopSpin: (() => void) | null = null;
+
     try {
-      const r = await apiFetch<PullResponse>(`/api/gacha/${props.bannerId}/pull`, {
-        body: { type: confirm.type },
-        idempotencyKey,
-      });
-      setResult(r);
+      // Audio dimulai dari interaksi tombol pengguna.
+      if (soundEnabled) {
+        playArcadeStart();
+        stopSpin = playArcadeSpin();
+      }
+
+      const [r] = await Promise.all([
+        apiFetch<PullResponse>(
+          `/api/gacha/${props.bannerId}/pull`,
+          {
+            body: { type: confirm.type },
+            idempotencyKey,
+          },
+        ),
+
+        new Promise((resolve) => window.setTimeout(resolve, 2000)),
+      ]);
+
+      // Perbarui saldo dan progress dari respons server.
       setCoins(r.coins);
+
       if (r.stepNumber) {
         setStage(r.stepNumber >= 5 ? 1 : r.stepNumber + 1);
-        if (r.stepNumber >= 5) setCycles((c) => c + 1);
+
+        if (r.stepNumber >= 5) {
+          setCycles((c) => c + 1);
+        }
       }
-      emitWalletUpdate({ coins: r.coins, shards: r.shards });
+
+      emitWalletUpdate({
+        coins: r.coins,
+        shards: r.shards,
+      });
+
       setConfirm(null);
+
+      // Hentikan suara spinning.
+      stopSpin?.();
+      stopSpin = null;
+
+      // Reveal hanya dilakukan setelah server sukses.
+      const highestRarity = Math.max(
+        ...r.results.map((item) => item.rarity),
+      );
+
+      setRevealRarity(highestRarity);
+
+      setArcadePhase("revealing");
+
+      if (soundEnabled) {
+        playArcadeReveal(highestRarity);
+      }
+
+      // Beri waktu untuk animasi reveal.
+      await new Promise((resolve) => window.setTimeout(resolve, 1800));
+
+      setResult(r);
+      setArcadePhase(null);
+
       router.refresh();
     } catch (e) {
+      stopSpin?.();
+      setArcadePhase(null);
       setError(errorMessage(e));
     } finally {
       setPending(false);
@@ -113,9 +179,26 @@ export function PullPanel(props: {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="text-primary size-5" aria-hidden /> Pull
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="text-primary size-5" aria-hidden />
+              Pull
+            </CardTitle>
+
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label={soundEnabled ? "Matikan suara" : "Aktifkan suara"}
+              onClick={() => setSoundEnabled((value) => !value)}
+            >
+              {soundEnabled ? (
+                <Volume2 className="size-5" />
+              ) : (
+                <VolumeX className="size-5" />
+              )}
+            </Button>
+          </div>
           <p className="text-sm">
             Saldo kamu: <CoinAmount value={coins} />
           </p>
@@ -269,6 +352,13 @@ export function PullPanel(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {arcadePhase && (
+        <ArcadePullOverlay
+          phase={arcadePhase}
+          rarity={revealRarity}
+        />
+      )}
     </>
   );
 }

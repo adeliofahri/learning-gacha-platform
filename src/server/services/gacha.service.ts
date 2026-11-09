@@ -221,10 +221,17 @@ export async function performPull(params: {
       }
 
       const shardConfig = await getShardConfig(tx);
+
+      const characterById = new Map(
+        banner.entries.map((entry) => [entry.characterId, entry.character]),
+      );
+      
       const rows: {
         id: string;
         pullId: string;
         characterId: string;
+        characterName: string;
+        characterImageUrl: string;
         rarity: number;
         position: number;
         isNew: boolean;
@@ -234,6 +241,12 @@ export async function performPull(params: {
       }[] = [];
 
       for (const [position, r] of results.entries()) {
+
+        const character = characterById.get(r.characterId);
+        if (!character) {
+          throw new AppError("CONFLICT", "Data karakter hasil gacha tidak ditemukan");
+        }
+
         const dupeShards = shardsForDuplicate(r.rarity, shardConfig);
         // Upsert atomik: xmax = 0 menandakan baris baru (karakter belum dimiliki).
         const upserted = await tx.$queryRaw<{ inserted: boolean }[]>`
@@ -251,6 +264,8 @@ export async function performPull(params: {
           id: randomUUID(),
           pullId: pull.id,
           characterId: r.characterId,
+          characterName: character.name,
+          characterImageUrl: character.imageUrl,
           rarity: r.rarity,
           position,
           isNew,
@@ -301,7 +316,6 @@ export async function listPullHistory(userId: string, page: number, pageSize: nu
         banner: { select: { name: true } },
         results: {
           orderBy: { position: "asc" },
-          include: { character: { select: { name: true, rarity: true, imageUrl: true } } },
         },
       },
     }),

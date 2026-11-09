@@ -16,6 +16,7 @@ import { listPackagesForStudent } from "@/server/services/learning.service";
 import { prisma } from "@/lib/db";
 import { DIFFICULTY_LABEL } from "@/lib/constants";
 import { firstParam } from "@/lib/utils";
+import { PackageCover } from "@/components/learning/package-cover";
 
 export const metadata = { title: "Belajar" };
 
@@ -85,7 +86,14 @@ export default async function LearnPage({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {packages.map((p) => (
-            <Card key={p.id} className="flex flex-col" data-testid="package-card">
+            <Card key={p.id} className="flex flex-col overflow-hidden" data-testid="package-card">
+              <PackageCover
+                imageUrl={p.coverImageUrl}
+                subject={p.subject}
+                title={p.title}
+                className="rounded-t-lg"
+              />
+
               <CardHeader>
                 <div className="flex flex-wrap gap-1">
                   {p.subject && <Badge>{p.subject}</Badge>}

@@ -166,6 +166,7 @@ export async function makePackage(questionIds: string[], title = "Paket") {
 export async function makeCharacter(
   rarity: number,
   name = `Char ${rarity} ${randomUUID().slice(0, 6)}`,
+  category: "PERMANENT" | "LIMITED" = "PERMANENT",
 ) {
   return prisma.character.create({
     data: {
@@ -173,7 +174,7 @@ export async function makeCharacter(
       description: "test",
       rarity,
       imageUrl: "/characters/pip-pensil.svg",
-      category: "PERMANENT",
+      category,
     },
   });
 }

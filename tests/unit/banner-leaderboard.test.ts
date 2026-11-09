@@ -69,8 +69,20 @@ describe("validasi publish banner", () => {
     stepUpEnabled: true,
     stepUpGuaranteeFeatured: false,
     entries: [
-      { rarity: 6, weight: 2, isFeatured: true, characterActive: true },
-      { rarity: 1, weight: 98, isFeatured: false, characterActive: true },
+      {
+        rarity: 6,
+        weight: 2,
+        isFeatured: true,
+        characterActive: true,
+        category: "LIMITED",
+      },
+      {
+        rarity: 1,
+        weight: 98,
+        isFeatured: false,
+        characterActive: true,
+        category: "LIMITED",
+      },
     ],
     stages: [1, 2, 3, 4, 5].map((stage) => ({
       stage,

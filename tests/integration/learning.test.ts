@@ -17,13 +17,21 @@ import {
   registerStudent,
   req,
   resetDb,
+  shards,
 } from "./helpers";
+import { POST as unlockRoute } from "@/app/api/questions/[id]/unlock/route";
 
 beforeEach(resetDb);
 
 const answer = (questionId: string, token: string, body: object, idempotencyKey?: string) =>
   attemptRoute(
     req(`/api/questions/${questionId}/attempts`, { token, body, idempotencyKey }),
+    ctx({ id: questionId }),
+  );
+
+const unlock = (questionId: string, token: string) =>
+  unlockRoute(
+    req(`/api/questions/${questionId}/unlock`, { token }),
     ctx({ id: questionId }),
   );
 
@@ -120,9 +128,33 @@ describe("pilihan ganda", () => {
     expect(view.questions[0]!.status).toBe("ATTEMPTED");
     expect(view.questions[0]!.correctOptionId).toBeNull();
     expect(JSON.stringify(view)).not.toContain("isCorrect");
-    // Boleh mencoba lagi selama belum solved
-    const retry = await (await answer(q.id, s.token, { optionId: q.options[1]!.id })).json();
-    expect(retry.bountyAwarded).toBe(10);
+    // Percobaan ulang ditolak selama cooldown aktif.
+    const locked = await answer(q.id, s.token, {
+      optionId: q.options[1]!.id,
+    });
+    expect(locked.status).toBe(409);
+
+    // Berikan 1 SHARD sebagai saldo awal untuk pengujian unlock.
+    await prisma.wallet.update({
+      where: { userId: s.id },
+      data: { shards: { increment: 1 } },
+    });
+
+    const unlockRes = await unlock(q.id, s.token);
+    expect(unlockRes.status).toBe(200);
+    expect(await unlockRes.json()).toMatchObject({
+      unlocked: true,
+      charged: 1,
+      shards: 0,
+    });
+
+    // Setelah unlock, siswa dapat mencoba kembali.
+    const retry = await answer(q.id, s.token, {
+      optionId: q.options[1]!.id,
+    });
+    expect(retry.status).toBe(201);
+    expect((await retry.json()).bountyAwarded).toBe(10);
+    expect(await shards(s.id)).toBe(0);
   });
 
   it("soal yang sama di dua paket hanya memberi reward sekali", async () => {
@@ -259,9 +291,31 @@ describe("isian & review admin", () => {
     expect(res.status).toBe(200);
     expect(await coins(s.id)).toBe(0);
     expect(await prisma.questionSolve.count()).toBe(0);
-    const again = await answer(q.id, s.token, { answerText: "jantung" });
+
+    const locked = await answer(q.id, s.token, {
+      answerText: "jantung",
+    });
+    expect(locked.status).toBe(409);
+
+    await prisma.wallet.update({
+      where: { userId: s.id },
+      data: { shards: { increment: 1 } },
+    });
+
+    const unlockRes = await unlock(q.id, s.token);
+    expect(unlockRes.status).toBe(200);
+    expect(await unlockRes.json()).toMatchObject({
+      unlocked: true,
+      charged: 1,
+      shards: 0,
+    });
+
+    const again = await answer(q.id, s.token, {
+      answerText: "jantung",
+    });
     expect(again.status).toBe(201);
     expect((await again.json()).status).toBe("PENDING_REVIEW");
+    expect(await shards(s.id)).toBe(0);
   });
 });
 

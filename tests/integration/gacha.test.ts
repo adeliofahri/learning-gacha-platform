@@ -157,7 +157,7 @@ describe("gacha", () => {
     const s = await registerStudent();
     await giveCoins(s.id, 1000);
     const common = await makeCharacter(1);
-    const six = await makeCharacter(6);
+    const six = await makeCharacter(6, undefined, "LIMITED");
     const banner = await makeBanner({
       type: "LIMITED",
       stepUp: true,
@@ -190,7 +190,7 @@ describe("gacha", () => {
   it("step-up tidak tersedia di banner yang tidak mengaktifkannya; banner berakhir di tengah siklus menyimpan progress", async () => {
     const s = await registerStudent();
     await giveCoins(s.id, 1000);
-    const six = await makeCharacter(6);
+    const six = await makeCharacter(6, undefined, "LIMITED");
     const plain = await makeBanner({ entries: [{ characterId: six.id, weight: 1 }] });
     expect((await pull(plain.id, s.token, "STEP_UP")).status).toBe(400);
 
@@ -215,7 +215,7 @@ describe("gacha", () => {
 
   it("admin: banner baru DRAFT, publish divalidasi", async () => {
     const admin = await createAdmin();
-    const c1 = await makeCharacter(1);
+    const c1 = await makeCharacter(1, undefined, "LIMITED");
     const res = await createBannerRoute(
       req("/api/admin/banners", {
         token: admin.token,
@@ -239,7 +239,7 @@ describe("gacha", () => {
       ctx({ id: banner.id }),
     );
     expect(publish.status).toBe(422); // tidak ada 6★ untuk jaminan step-up
-    const six = await makeCharacter(6);
+    const six = await makeCharacter(6, undefined, "LIMITED");
     await prisma.bannerCharacter.create({
       data: { bannerId: banner.id, characterId: six.id, weight: 1 },
     });

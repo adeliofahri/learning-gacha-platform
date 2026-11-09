@@ -1,3 +1,4 @@
+
 import { prisma, transaction } from "@/lib/db";
 import { AppError, notFound } from "@/lib/errors";
 import type { BannerInput } from "@/lib/validation/collection";
@@ -9,9 +10,24 @@ async function validationInput(tx: Tx, input: BannerInput) {
   const chars = await tx.character.findMany({
     where: { id: { in: input.entries.map((e) => e.characterId) } },
   });
-  if (chars.length !== input.entries.length)
+
+  if (chars.length !== input.entries.length) {
     throw new AppError("BAD_REQUEST", "Ada karakter yang tidak ditemukan");
+  }
+
   const byId = new Map(chars.map((c) => [c.id, c]));
+
+  const mismatched = input.entries.some(
+    (entry) => byId.get(entry.characterId)!.category !== input.type,
+  );
+
+  if (mismatched) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Kategori karakter harus sesuai dengan tipe banner",
+    );
+  }
+
   return {
     type: input.type,
     startsAt: input.startsAt ?? null,
@@ -24,6 +40,7 @@ async function validationInput(tx: Tx, input: BannerInput) {
       weight: e.weight,
       isFeatured: e.isFeatured,
       characterActive: byId.get(e.characterId)!.status === "ACTIVE",
+      category: byId.get(e.characterId)!.category,
     })),
     stages: input.stages,
   };
@@ -47,20 +64,31 @@ function bannerData(input: BannerInput) {
 async function writeChildren(tx: Tx, bannerId: string, input: BannerInput) {
   await tx.bannerCharacter.deleteMany({ where: { bannerId } });
   await tx.stepUpStage.deleteMany({ where: { bannerId } });
+
   if (input.entries.length) {
-    await tx.bannerCharacter.createMany({ data: input.entries.map((e) => ({ ...e, bannerId })) });
+    await tx.bannerCharacter.createMany({
+      data: input.entries.map((e) => ({ ...e, bannerId })),
+    });
   }
+
   if (input.type === "LIMITED" && input.stepUpEnabled && input.stages.length) {
-    await tx.stepUpStage.createMany({ data: input.stages.map((s) => ({ ...s, bannerId })) });
+    await tx.stepUpStage.createMany({
+      data: input.stages.map((s) => ({ ...s, bannerId })),
+    });
   }
 }
 
 /** Banner baru selalu DRAFT; publikasi lewat publishBanner setelah validasi. */
 export async function createBanner(adminId: string, input: BannerInput) {
   return transaction(async (tx) => {
-    await validationInput(tx, input); // memastikan karakter ada
-    const banner = await tx.banner.create({ data: { ...bannerData(input), status: "DRAFT" } });
+    await validationInput(tx, input);
+
+    const banner = await tx.banner.create({
+      data: { ...bannerData(input), status: "DRAFT" },
+    });
+
     await writeChildren(tx, banner.id, input);
+
     await logAudit(tx, {
       actorId: adminId,
       action: "BANNER_CREATE",
@@ -68,24 +96,49 @@ export async function createBanner(adminId: string, input: BannerInput) {
       targetId: banner.id,
       metadata: { name: banner.name },
     });
+
     return banner;
   });
 }
 
-export async function updateBanner(adminId: string, id: string, input: BannerInput) {
+export async function updateBanner(
+  adminId: string,
+  id: string,
+  input: BannerInput,
+) {
   return transaction(async (tx) => {
     const existing = await tx.banner.findUnique({ where: { id } });
+
     if (!existing) throw notFound("Banner");
-    if (existing.status === "ARCHIVED")
-      throw new AppError("CONFLICT", "Banner yang diarsipkan tidak dapat diubah");
+
+    if (existing.status === "ARCHIVED") {
+      throw new AppError(
+        "CONFLICT",
+        "Banner yang diarsipkan tidak dapat diubah",
+      );
+    }
+
     const v = await validationInput(tx, input);
+
     if (existing.status === "ACTIVE") {
       const errors = validateBannerForPublish(v);
-      if (errors.length)
-        throw new AppError("UNPROCESSABLE", "Konfigurasi banner aktif tidak valid", errors);
+
+      if (errors.length) {
+        throw new AppError(
+          "UNPROCESSABLE",
+          "Konfigurasi banner aktif tidak valid",
+          errors,
+        );
+      }
     }
-    const banner = await tx.banner.update({ where: { id }, data: bannerData(input) });
+
+    const banner = await tx.banner.update({
+      where: { id },
+      data: bannerData(input),
+    });
+
     await writeChildren(tx, id, input);
+
     await logAudit(tx, {
       actorId: adminId,
       action: "BANNER_UPDATE",
@@ -97,6 +150,7 @@ export async function updateBanner(adminId: string, id: string, input: BannerInp
         stepUp: input.stepUpEnabled,
       },
     });
+
     return banner;
   });
 }
@@ -105,12 +159,17 @@ export async function getBannerAdmin(id: string) {
   const banner = await prisma.banner.findUnique({
     where: { id },
     include: {
-      entries: { include: { character: true }, orderBy: { character: { rarity: "desc" } } },
+      entries: {
+        include: { character: true },
+        orderBy: { character: { rarity: "desc" } },
+      },
       stepUpStages: { orderBy: { stage: "asc" } },
       _count: { select: { pulls: true } },
     },
   });
+
   if (!banner) throw notFound("Banner");
+
   return banner;
 }
 
@@ -118,10 +177,18 @@ export async function publishBanner(adminId: string, id: string) {
   return transaction(async (tx) => {
     const b = await tx.banner.findUnique({
       where: { id },
-      include: { entries: { include: { character: true } }, stepUpStages: true },
+      include: {
+        entries: { include: { character: true } },
+        stepUpStages: true,
+      },
     });
+
     if (!b) throw notFound("Banner");
-    if (b.status === "ARCHIVED") throw new AppError("CONFLICT", "Banner diarsipkan");
+
+    if (b.status === "ARCHIVED") {
+      throw new AppError("CONFLICT", "Banner diarsipkan");
+    }
+
     const errors = validateBannerForPublish({
       type: b.type,
       startsAt: b.startsAt,
@@ -134,12 +201,24 @@ export async function publishBanner(adminId: string, id: string) {
         weight: e.weight,
         isFeatured: e.isFeatured,
         characterActive: e.character.status === "ACTIVE",
+        category: e.character.category,
       })),
       stages: b.stepUpStages,
     });
-    if (errors.length)
-      throw new AppError("UNPROCESSABLE", "Banner belum valid untuk dipublikasikan", errors);
-    const banner = await tx.banner.update({ where: { id }, data: { status: "ACTIVE" } });
+
+    if (errors.length) {
+      throw new AppError(
+        "UNPROCESSABLE",
+        "Banner belum valid untuk dipublikasikan",
+        errors,
+      );
+    }
+
+    const banner = await tx.banner.update({
+      where: { id },
+      data: { status: "ACTIVE" },
+    });
+
     await logAudit(tx, {
       actorId: adminId,
       action: "BANNER_PUBLISH",
@@ -147,6 +226,7 @@ export async function publishBanner(adminId: string, id: string) {
       targetId: id,
       metadata: { isDemoRate: b.isDemoRate },
     });
+
     return banner;
   });
 }
@@ -155,16 +235,21 @@ export async function publishBanner(adminId: string, id: string) {
 export async function archiveBanner(adminId: string, id: string) {
   return transaction(async (tx) => {
     const banner = await tx.banner
-      .update({ where: { id }, data: { status: "ARCHIVED" } })
+      .update({
+        where: { id },
+        data: { status: "ARCHIVED" },
+      })
       .catch(() => {
         throw notFound("Banner");
       });
+
     await logAudit(tx, {
       actorId: adminId,
       action: "BANNER_ARCHIVE",
       targetType: "Banner",
       targetId: id,
     });
+
     return banner;
   });
 }

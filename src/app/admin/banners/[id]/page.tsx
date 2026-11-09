@@ -37,6 +37,7 @@ export default async function EditBannerPage({ params }: { params: Promise<{ id:
       weight: e.weight,
       isFeatured: e.isFeatured,
       characterActive: e.character.status === "ACTIVE",
+      category: e.character.category,
     })),
     stages: b.stepUpStages,
   });

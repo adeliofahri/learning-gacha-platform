@@ -2,6 +2,7 @@ import { prisma, transaction, isUniqueViolation } from "@/lib/db";
 import { AppError, notFound } from "@/lib/errors";
 import type { CharacterInput } from "@/lib/validation/collection";
 import { logAudit } from "./audit.service";
+import { applyWalletChange } from "./wallet.service";
 
 export async function listInventory(userId: string, filters: { rarity?: number } = {}) {
   return prisma.inventoryItem.findMany({
@@ -153,4 +154,167 @@ export async function updateCharacter(adminId: string, id: string, input: Charac
     if (isUniqueViolation(e)) throw new AppError("CONFLICT", "Nama karakter sudah dipakai");
     throw e;
   }
+}
+
+export async function getCharacterDeletePreview(id: string) {
+  const character = await prisma.character.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      rarity: true,
+    },
+  });
+
+  if (!character) throw notFound("Karakter");
+
+  const owners = await prisma.inventoryItem.findMany({
+    where: {
+      characterId: id,
+      quantity: { gt: 0 },
+      user: { role: "STUDENT" },
+    },
+    select: {
+      userId: true,
+      quantity: true,
+      shardsFromDuplicates: true,
+    },
+  });
+
+  const totalRefund = owners.reduce(
+    (total, item) => total + 100 * character.rarity * item.quantity,
+    0,
+  );
+
+  return {
+    characterId: character.id,
+    characterName: character.name,
+    rarity: character.rarity,
+    affectedStudents: owners.length,
+    totalCopies: owners.reduce((total, item) => total + item.quantity, 0),
+    totalRefund,
+  };
+}
+
+export async function deleteCharacter(adminId: string, id: string) {
+  return transaction(async (tx) => {
+    // Lock karakter agar dua proses penghapusan tidak berjalan bersamaan.
+    const characters = await tx.$queryRaw<
+      { id: string; name: string; rarity: number }[]
+    >`
+      SELECT "id", "name", "rarity"
+      FROM "Character"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+
+    const character = characters[0];
+    if (!character) throw notFound("Karakter");
+
+    const owners = await tx.inventoryItem.findMany({
+      where: {
+        characterId: id,
+        quantity: { gt: 0 },
+        user: { role: "STUDENT" },
+      },
+      select: {
+        userId: true,
+        quantity: true,
+        shardsFromDuplicates: true,
+      },
+    });
+
+    let totalRefund = 0;
+    let totalCopies = 0;
+
+    // Refund setiap siswa berdasarkan jumlah salinan yang dimiliki.
+    for (const item of owners) {
+      const amount = item.shardsFromDuplicates;
+
+      if (!Number.isSafeInteger(amount) || amount < 0) {
+        throw new AppError("BAD_REQUEST", "Jumlah refund tidak valid");
+      }
+
+      // Tidak perlu membuat wallet atau transaksi jika refund 0.
+      if (amount > 0) {
+        await tx.wallet.upsert({
+          where: { userId: item.userId },
+          create: { userId: item.userId },
+          update: {},
+        });
+
+        await applyWalletChange(tx, {
+          userId: item.userId,
+          currency: "SHARD",
+          amount,
+          type: "CHARACTER_DELETE_REFUND",
+          referenceType: "CHARACTER_DELETION",
+          referenceId: id,
+          description: `Refund penghapusan karakter ${character.name} (${character.rarity}★)`,
+          metadata: {
+            characterId: id,
+            characterName: character.name,
+            rarity: character.rarity,
+            quantity: item.quantity,
+            shardsFromDuplicates: item.shardsFromDuplicates,
+            refundMethod: "DUPLICATE_CONVERSION",
+          },
+          actorId: adminId,
+        });
+      }
+
+      totalRefund += amount;
+      totalCopies += item.quantity;
+    }
+
+    // Pertahankan riwayat gacha, lepaskan relasi ke karakter.
+    await tx.gachaResult.updateMany({
+      where: { characterId: id },
+      data: { characterId: null },
+    });
+
+    // Hapus karakter dari seluruh banner.
+    await tx.bannerCharacter.deleteMany({
+      where: { characterId: id },
+    });
+
+    // Lepaskan karakter dari avatar pengguna.
+    await tx.user.updateMany({
+      where: { avatarCharacterId: id },
+      data: { avatarCharacterId: null },
+    });
+
+    // Hapus dari seluruh inventory.
+    await tx.inventoryItem.deleteMany({
+      where: { characterId: id },
+    });
+
+    // Hapus karakter setelah seluruh relasinya ditangani.
+    await tx.character.delete({
+      where: { id },
+    });
+
+    // Catat aktivitas admin.
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "CHARACTER_DELETE",
+      targetType: "Character",
+      targetId: id,
+      metadata: {
+        name: character.name,
+        rarity: character.rarity,
+        affectedStudents: owners.length,
+        totalCopies,
+        totalRefund,
+      },
+    });
+
+    return {
+      characterName: character.name,
+      rarity: character.rarity,
+      affectedStudents: owners.length,
+      totalCopies,
+      totalRefund,
+    };
+  });
 }

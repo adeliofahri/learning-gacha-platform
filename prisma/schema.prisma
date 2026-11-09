@@ -60,6 +60,8 @@ enum TransactionType {
   GACHA_SPEND
   DUPLICATE_CONVERSION
   SHARD_SPEND
+  CHARACTER_DELETE_REFUND
+  DAILY_LOGIN_REWARD
 }
 
 enum CharacterCategory {
@@ -106,23 +108,27 @@ model User {
   avatarCharacter   Character? @relation("UserAvatar", fields: [avatarCharacterId], references: [id], onDelete: SetNull)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+  statsResetAt      DateTime?
 
-  sessions          Session[]
-  wallet            Wallet?
-  transactions      WalletTransaction[]
-  attempts          Attempt[]           @relation("AttemptUser")
-  reviews           Attempt[]           @relation("AttemptReviewer")
-  solves            QuestionSolve[]
-  packageProgress   PackageProgress[]
-  inventory         InventoryItem[]
-  pulls             GachaPull[]
-  stepUpProgress    StepUpProgress[]
-  eventClaims       EventClaim[]
-  auditLogs         AuditLog[]
-  uploads           UploadedImage[]
-  questionsCreated  Question[]
-  eventsCreated     Event[]
-  adjustmentsMade   WalletTransaction[] @relation("TransactionActor")
+  sessions         Session[]
+  wallet           Wallet?
+  transactions     WalletTransaction[]
+  attempts         Attempt[]           @relation("AttemptUser")
+  reviews          Attempt[]           @relation("AttemptReviewer")
+  solves           QuestionSolve[]
+  packageProgress  PackageProgress[]
+  inventory        InventoryItem[]
+  pulls            GachaPull[]
+  stepUpProgress   StepUpProgress[]
+  eventClaims      EventClaim[]
+  auditLogs        AuditLog[]
+  uploads          UploadedImage[]
+  questionsCreated Question[]
+  eventsCreated    Event[]
+  adjustmentsMade  WalletTransaction[] @relation("TransactionActor")
+
+  questionCooldowns QuestionCooldown[]
+  dailyLoginRewards DailyLoginReward[]
 }
 
 model Session {
@@ -164,6 +170,18 @@ model WalletTransaction {
   @@index([type, createdAt])
 }
 
+model DailyLoginReward {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateKey   String
+  amount    Int      @default(100)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dateKey])
+  @@index([dateKey])
+}
+
 model Subject {
   id        String     @id @default(cuid())
   name      String     @unique
@@ -188,6 +206,12 @@ model DifficultyConfig {
   difficulty Difficulty @id
   bounty     Int
   updatedAt  DateTime   @updatedAt
+}
+
+model QuestionUnlockConfig {
+  id        String   @id @default("default")
+  shardCost Int      @default(1)
+  updatedAt DateTime @updatedAt
 }
 
 model Question {
@@ -216,6 +240,8 @@ model Question {
   attempts        Attempt[]
   solves          QuestionSolve[]
 
+  cooldowns QuestionCooldown[]
+
   @@index([status, subjectId])
 }
 
@@ -239,17 +265,18 @@ model QuestionAcceptedAnswer {
 }
 
 model Package {
-  id          String            @id @default(cuid())
-  title       String
-  description String?
-  subjectId   String?
-  subject     Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
-  status      ContentStatus     @default(DRAFT)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  items       PackageQuestion[]
-  progress    PackageProgress[]
-  attempts    Attempt[]
+  id            String            @id @default(cuid())
+  title         String
+  description   String?
+  coverImageUrl String?
+  subjectId     String?
+  subject       Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  status        ContentStatus     @default(DRAFT)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  items         PackageQuestion[]
+  progress      PackageProgress[]
+  attempts      Attempt[]
 }
 
 model PackageQuestion {
@@ -431,18 +458,20 @@ model GachaPull {
 }
 
 model GachaResult {
-  id            String    @id @default(cuid())
-  pullId        String
-  pull          GachaPull @relation(fields: [pullId], references: [id], onDelete: Cascade)
-  characterId   String
-  character     Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
-  rarity        Int
-  position      Int
-  isNew         Boolean
-  isGuaranteed  Boolean   @default(false)
-  isFeatured    Boolean   @default(false)
-  shardsAwarded Int       @default(0)
-  createdAt     DateTime  @default(now())
+  id                String     @id @default(cuid())
+  pullId            String
+  pull              GachaPull  @relation(fields: [pullId], references: [id], onDelete: Cascade)
+  characterId       String?
+  character         Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  characterName     String
+  characterImageUrl String
+  rarity            Int
+  position          Int
+  isNew             Boolean
+  isGuaranteed      Boolean    @default(false)
+  isFeatured        Boolean    @default(false)
+  shardsAwarded     Int        @default(0)
+  createdAt         DateTime   @default(now())
 
   @@index([pullId])
 }
@@ -507,4 +536,33 @@ model UploadedImage {
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
+}
+
+model QuestionCooldown {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([expiresAt])
+}
+
+enum RarityBorderType {
+  PRESET
+  GRADIENT
+  IMAGE
+}
+
+model RarityStyle {
+  id             String           @id @default(cuid())
+  rarity         Int              @unique
+  borderType     RarityBorderType @default(PRESET)
+  borderConfig   Json?
+  borderImageUrl String?
+  updatedAt      DateTime         @updatedAt
 }

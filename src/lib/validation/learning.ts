@@ -69,6 +69,14 @@ export const packageSchema = z
   .object({
     title: z.string().trim().min(3).max(150),
     description: z.string().trim().max(2000).nullable().optional(),
+    coverImageUrl: z
+      .string()
+      .regex(
+        /^\/uploads\/characters\/[0-9]+-[a-f0-9]{16}\.(png|jpg|webp)$/,
+        "URL gambar paket tidak valid",
+      )
+      .nullable()
+      .optional(),
     subjectId: idSchema.nullable().optional(),
     status: contentStatus.default("DRAFT"),
     questionIds: z.array(idSchema).max(200),
@@ -76,7 +84,11 @@ export const packageSchema = z
   .strict()
   .superRefine((p, ctx) => {
     if (new Set(p.questionIds).size !== p.questionIds.length) {
-      ctx.addIssue({ code: "custom", path: ["questionIds"], message: "Soal duplikat dalam paket" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["questionIds"],
+        message: "Soal duplikat dalam paket",
+      });
     }
   });
 
@@ -97,6 +109,7 @@ export const reviewSchema = z
 
 export const difficultySettingsSchema = z
   .object({
+    unlockShardCost: z.coerce.number().int().min(0).max(100_000),
     bounties: z.object({
       EASY: z.coerce.number().int().min(0).max(10_000),
       MEDIUM: z.coerce.number().int().min(0).max(10_000),
@@ -117,3 +130,43 @@ export const difficultySettingsSchema = z
 export type QuestionInput = z.infer<typeof questionSchema>;
 export type PackageInput = z.infer<typeof packageSchema>;
 export type AttemptInput = z.infer<typeof attemptSchema>;
+
+const hexColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus HEX");
+
+export const rarityStyleSchema = z
+  .object({
+    rarity: z.number().int().min(1).max(6),
+    borderType: z.enum(["PRESET", "GRADIENT", "IMAGE"]),
+    borderConfig: z
+      .object({
+        colors: z.array(hexColorSchema).min(2).max(5),
+        angle: z.number().int().min(0).max(360),
+      })
+      .strict()
+      .nullable(),
+    borderImageUrl: z
+      .string()
+      .regex(
+        /^\/uploads\/characters\/[0-9]+-[a-f0-9]{16}\.(png|jpg|webp)$/,
+        "URL gambar border tidak valid",
+      )
+      .nullable(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.borderType === "GRADIENT" && !value.borderConfig) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["borderConfig"],
+        message: "Konfigurasi gradient wajib diisi",
+      });
+    }
+
+    if (value.borderType === "IMAGE" && !value.borderImageUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["borderImageUrl"],
+        message: "Gambar border wajib diunggah",
+      });
+    }
+  });

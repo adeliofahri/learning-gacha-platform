@@ -18,18 +18,24 @@ export default async function CollectionPage({
   const user = await requireStudentPage();
   const raw = Number(firstParam((await searchParams).rarity));
   const rarity = Number.isInteger(raw) && raw >= 1 && raw <= 6 ? raw : undefined;
+
   const [items, stars] = await Promise.all([
     listInventory(user.id, { rarity }),
     totalStars(user.id),
   ]);
-  const shardTotal = items.reduce((s, i) => s + i.shardsFromDuplicates, 0);
+
+  const shardTotal = items.reduce(
+    (sum, item) => sum + item.shardsFromDuplicates,
+    0,
+  );
 
   return (
     <div>
       <PageHeader
         title="Koleksi karakter"
-        description={`Total ${stars} ★ dari karakter unik. Duplikat otomatis dikonversi menjadi shard.`}
+        description={`Total ${stars} ★ dari karakter unik.`}
       />
+
       <nav className="mb-5 flex flex-wrap gap-2" aria-label="Filter rarity">
         {[undefined, 6, 5, 4, 3, 2, 1].map((r) => (
           <Link
@@ -47,6 +53,7 @@ export default async function CollectionPage({
           </Link>
         ))}
       </nav>
+
       {items.length === 0 ? (
         <EmptyState
           title={rarity ? `Belum punya karakter ${rarity}★` : "Koleksimu masih kosong"}
@@ -56,9 +63,11 @@ export default async function CollectionPage({
         <>
           {rarity === undefined && (
             <p className="text-muted-foreground mb-3 text-sm">
-              {items.length} karakter unik · shard dari duplikat: <ShardAmount value={shardTotal} />
+              {items.length} karakter unik · Total SHARD dari konversi:{" "}
+              <ShardAmount value={shardTotal} />
             </p>
           )}
+
           <div
             className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
             data-testid="collection-grid"
@@ -73,14 +82,11 @@ export default async function CollectionPage({
                   character={i.character}
                   className="h-full transition-shadow hover:shadow-md"
                   footer={
-                    <div className="flex flex-wrap justify-center gap-1">
-                      {i.duplicateCount > 0 && (
-                        <Badge variant="secondary">+{i.duplicateCount} duplikat</Badge>
-                      )}
-                      {i.character.status === "ARCHIVED" && (
+                    i.character.status === "ARCHIVED" ? (
+                      <div className="flex justify-center">
                         <Badge variant="outline">Diarsipkan</Badge>
-                      )}
-                    </div>
+                      </div>
+                    ) : null
                   }
                 />
               </Link>

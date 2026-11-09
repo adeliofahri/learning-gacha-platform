@@ -35,6 +35,8 @@ export const TRANSACTION_TYPE_LABEL = {
   GACHA_SPEND: "Gacha",
   DUPLICATE_CONVERSION: "Konversi duplikat",
   SHARD_SPEND: "Penggunaan shard",
+  CHARACTER_DELETE_REFUND: "Refund penghapusan karakter",
+  DAILY_LOGIN_REWARD: "Reward login harian",
 } as const;
 
 export const PULL_TYPE_LABEL = {
