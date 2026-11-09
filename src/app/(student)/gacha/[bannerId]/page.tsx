@@ -38,21 +38,30 @@ export default async function BannerPage({ params }: { params: Promise<{ bannerI
       >
         <ArrowLeft className="size-4" aria-hidden /> Semua banner
       </Link>
-      <div className="from-primary/10 rounded-lg border bg-gradient-to-br via-fuchsia-400/10 to-amber-300/15 p-5">
-        <div className="flex flex-wrap gap-1">
-          <Badge>{banner.type === "LIMITED" ? "Limited" : "Permanen"}</Badge>
-          <Badge variant={active ? "success" : "secondary"}>
-            {AVAILABILITY_LABEL[banner.availability]}
-          </Badge>
-          {banner.isDemoRate && <Badge variant="outline">DEMO RATE</Badge>}
-        </div>
-        <h1 className="mt-2 text-2xl font-black sm:text-3xl">{banner.name}</h1>
-        <p className="text-muted-foreground mt-1 max-w-2xl">{banner.description}</p>
-        {banner.startsAt && banner.endsAt && (
-          <p className="mt-2 text-sm">
-            Periode: {formatDateTime(banner.startsAt)} — {formatDateTime(banner.endsAt)}
-          </p>
+      <div className="overflow-hidden rounded-lg border">
+        {banner.imageUrl && (
+          <img
+            src={banner.imageUrl}
+            alt={`Artwork ${banner.name}`}
+            className="aspect-video w-full object-cover"
+          />
         )}
+        <div className="from-primary/10 rounded-lg border bg-gradient-to-br via-fuchsia-400/10 to-amber-300/15 p-5">
+          <div className="flex flex-wrap gap-1">
+            <Badge>{banner.type === "LIMITED" ? "Limited" : "Permanen"}</Badge>
+            <Badge variant={active ? "success" : "secondary"}>
+              {AVAILABILITY_LABEL[banner.availability]}
+            </Badge>
+            {banner.isDemoRate && <Badge variant="outline">DEMO RATE</Badge>}
+          </div>
+          <h1 className="mt-2 text-2xl font-black sm:text-3xl">{banner.name}</h1>
+          <p className="text-muted-foreground mt-1 max-w-2xl">{banner.description}</p>
+          {banner.startsAt && banner.endsAt && (
+            <p className="mt-2 text-sm">
+              Periode: {formatDateTime(banner.startsAt)} — {formatDateTime(banner.endsAt)}
+            </p>
+          )}
+        </div>
       </div>
 
       {!active && (

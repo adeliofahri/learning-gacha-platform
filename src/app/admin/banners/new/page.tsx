@@ -22,6 +22,7 @@ export default async function NewBannerPage() {
           rarity: c.rarity,
           imageUrl: c.imageUrl,
           status: c.status,
+          category: c.category,
         }))}
       />
     </div>

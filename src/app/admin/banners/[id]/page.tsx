@@ -77,6 +77,7 @@ export default async function EditBannerPage({ params }: { params: Promise<{ id:
             rarity: c.rarity,
             imageUrl: c.imageUrl,
             status: c.status,
+            category: c.category,
           }))}
           initial={{
             id: b.id,

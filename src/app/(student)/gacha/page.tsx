@@ -45,14 +45,26 @@ export default async function GachaPage() {
                 data-testid="banner-card"
               >
                 <div className="from-primary/15 flex gap-2 bg-gradient-to-br via-fuchsia-400/15 to-amber-300/20 p-4">
-                  {showcase.map((e) => (
-                    <CharacterImage
-                      key={e.id}
-                      src={e.character.imageUrl}
-                      name={e.character.name}
-                      size={80}
-                    />
-                  ))}
+                  {b.imageUrl ? (
+                    <div className="overflow-hidden bg-muted">
+                      <img
+                        src={b.imageUrl}
+                        alt={`Artwork ${b.name}`}
+                        className="aspect-video w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="from-primary/15 flex aspect-video items-center justify-center gap-2 bg-gradient-to-br via-fuchsia-400/15 to-amber-300/20 p-4">
+                      {showcase.map((e) => (
+                        <CharacterImage
+                          key={e.id}
+                          src={e.character.imageUrl}
+                          name={e.character.name}
+                          size={80}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <CardHeader>
                   <div className="flex flex-wrap gap-1">
