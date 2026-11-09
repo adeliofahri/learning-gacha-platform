@@ -17,17 +17,6 @@ async function validationInput(tx: Tx, input: BannerInput) {
 
   const byId = new Map(chars.map((c) => [c.id, c]));
 
-  const mismatched = input.entries.some(
-    (entry) => byId.get(entry.characterId)!.category !== input.type,
-  );
-
-  if (mismatched) {
-    throw new AppError(
-      "BAD_REQUEST",
-      "Kategori karakter harus sesuai dengan tipe banner",
-    );
-  }
-
   return {
     type: input.type,
     startsAt: input.startsAt ?? null,
@@ -40,7 +29,6 @@ async function validationInput(tx: Tx, input: BannerInput) {
       weight: e.weight,
       isFeatured: e.isFeatured,
       characterActive: byId.get(e.characterId)!.status === "ACTIVE",
-      category: byId.get(e.characterId)!.category,
     })),
     stages: input.stages,
   };
@@ -201,7 +189,6 @@ export async function publishBanner(adminId: string, id: string) {
         weight: e.weight,
         isFeatured: e.isFeatured,
         characterActive: e.character.status === "ACTIVE",
-        category: e.character.category,
       })),
       stages: b.stepUpStages,
     });
