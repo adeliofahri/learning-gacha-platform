@@ -104,7 +104,20 @@ async function loadPull(pullId: string) {
       banner: { select: { id: true, name: true } },
       results: {
         orderBy: { position: "asc" },
-        include: { character: { select: { id: true, name: true, rarity: true, imageUrl: true } } },
+        include: {
+          character: {
+            select: {
+              id: true,
+              name: true,
+              rarity: true,
+              imageUrl: true,
+              category: true,
+              limitedBorderType: true,
+              limitedBorderConfig: true,
+              limitedBorderImageUrl: true,
+            },
+          },
+        },
       },
     },
   });

@@ -40,6 +40,12 @@ export function CharacterForm({
         imageUrl: initial.imageUrl,
         category: initial.category,
         status: initial.status,
+        limitedBorderType: initial.limitedBorderType ?? "PRESET",
+        limitedBorderConfig: initial.limitedBorderConfig ?? {
+          colors: ["#A855F7", "#E11D48"],
+          angle: 0,
+        },
+        limitedBorderImageUrl: initial.limitedBorderImageUrl ?? null,
       }
     : {
         name: "",
@@ -48,23 +54,16 @@ export function CharacterForm({
         imageUrl: library[0] ?? "",
         category: "PERMANENT",
         status: "ACTIVE",
+        limitedBorderType: "PRESET",
+        limitedBorderConfig: {
+          colors: ["#A855F7", "#E11D48"],
+          angle: 0,
+        },
+        limitedBorderImageUrl: null,
       },
   });
   const v = form.watch();
   const { errors } = form.formState;
-
-  function onInvalid(errors: typeof form.formState.errors) {
-    console.error("Character form validation failed:", errors);
-
-    const firstError = Object.values(errors).find(
-      (error) => error?.message,
-    );
-
-    setError(
-      firstError?.message?.toString() ??
-        "Data karakter tidak valid. Periksa kembali seluruh kolom.",
-    );
-  }
 
   async function upload(file: File) {
     setError(null);
@@ -100,11 +99,9 @@ export function CharacterForm({
 
           try {
             if (initial) {
-              const { id, ...characterData } = values as FormIn & { id?: string };
-
               await apiFetch(`/api/admin/characters/${initial.id}`, {
                 method: "PUT",
-                body: characterData,
+                body: values,
               });
               setSaved(true);
               router.refresh();
@@ -178,6 +175,258 @@ export function CharacterForm({
               </Select>
             </div>
           </div>
+          {v.category === "LIMITED" && (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div>
+                <p className="font-semibold">Border karakter LIMITED</p>
+                <p className="text-muted-foreground text-sm">
+                  Setiap karakter LIMITED memiliki desain border tersendiri.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="limitedBorderType">Tipe border</Label>
+                <Select
+                  id="limitedBorderType"
+                  value={v.limitedBorderType ?? "PRESET"}
+                  onChange={(e) => {
+                    const type = e.target.value as
+                      | "PRESET"
+                      | "GRADIENT"
+                      | "IMAGE";
+
+                    form.setValue("limitedBorderType", type, {
+                      shouldValidate: true,
+                    });
+
+                    if (type === "GRADIENT" && !v.limitedBorderConfig) {
+                      form.setValue(
+                        "limitedBorderConfig",
+                        { colors: ["#A855F7", "#E11D48"], angle: 0 },
+                        { shouldValidate: true },
+                      );
+                    }
+                  }}
+                >
+                  <option value="PRESET">Preset</option>
+                  <option value="GRADIENT">Gradient</option>
+                  <option value="IMAGE">Gambar border</option>
+                </Select>
+              </div>
+
+              {v.limitedBorderType === "GRADIENT" && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Warna gradient</p>
+
+                  {[0, 1, 2, 3, 4].map((index) => {
+                    const colors =
+                      v.limitedBorderConfig?.colors ?? [
+                        "#A855F7",
+                        "#E11D48",
+                      ];
+
+                    return (
+                      <div key={index} className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          aria-label={`Warna gradient ${index + 1}`}
+                          value={colors[index] ?? "#A855F7"}
+                          onChange={(e) => {
+                            const nextColors = [...colors];
+                            nextColors[index] = e.target.value;
+
+                            form.setValue(
+                              "limitedBorderConfig",
+                              {
+                                colors: nextColors.slice(0, Math.max(2, colors.length)),
+                                angle: v.limitedBorderConfig?.angle ?? 0,
+                              },
+                              { shouldValidate: true },
+                            );
+                          }}
+                          className="size-10 cursor-pointer rounded border p-1"
+                        />
+
+                        <span className="text-sm">
+                          Warna {index + 1}
+                        </span>
+
+                        {index >= 2 && index === colors.length - 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (colors.length <= 2) return;
+
+                              form.setValue(
+                                "limitedBorderConfig",
+                                {
+                                  colors: colors.slice(0, -1),
+                                  angle: v.limitedBorderConfig?.angle ?? 0,
+                                },
+                                { shouldValidate: true },
+                              );
+                            }}
+                          >
+                            Hapus
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      (v.limitedBorderConfig?.colors?.length ?? 2) >= 5
+                    }
+                    onClick={() => {
+                      const colors =
+                        v.limitedBorderConfig?.colors ?? [
+                          "#A855F7",
+                          "#E11D48",
+                        ];
+
+                      form.setValue(
+                        "limitedBorderConfig",
+                        {
+                          colors: [...colors, "#FACC15"],
+                          angle: v.limitedBorderConfig?.angle ?? 0,
+                        },
+                        { shouldValidate: true },
+                      );
+                    }}
+                  >
+                    Tambah warna
+                  </Button>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="limitedBorderAngle">
+                      Sudut gradient (0–360°)
+                    </Label>
+                    <Input
+                      id="limitedBorderAngle"
+                      type="number"
+                      min={0}
+                      max={360}
+                      value={v.limitedBorderConfig?.angle ?? 0}
+                      onChange={(e) => {
+                        const angle = Number(e.target.value);
+                        const colors =
+                          v.limitedBorderConfig?.colors ?? [
+                            "#A855F7",
+                            "#E11D48",
+                          ];
+
+                        form.setValue(
+                          "limitedBorderConfig",
+                          { colors, angle },
+                          { shouldValidate: true },
+                        );
+                      }}
+                    />
+                  </div>
+
+                  <FieldError
+                    message={errors.limitedBorderConfig?.message as string | undefined}
+                  />
+                </div>
+              )}
+
+              {v.limitedBorderType === "IMAGE" && (
+                <div className="space-y-2">
+                  <Label htmlFor="limitedBorderImage">
+                    Unggah gambar border
+                  </Label>
+
+                  <Input
+                    id="limitedBorderImage"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      if (file.size > 2 * 1024 * 1024) {
+                        setError("Ukuran gambar border maksimal 2 MB");
+                        return;
+                      }
+
+                      if (
+                        !["image/png", "image/jpeg", "image/webp"].includes(file.type)
+                      ) {
+                        setError("Format gambar harus PNG, JPEG, atau WebP");
+                        return;
+                      }
+
+                      setError(null);
+                      setUploading(true);
+
+                      try {
+                        const fd = new FormData();
+                        fd.append("file", file);
+
+                        const res = await fetch("/api/admin/uploads", {
+                          method: "POST",
+                          body: fd,
+                          credentials: "same-origin",
+                        });
+
+                        const data = await res.json();
+
+                        if (!res.ok) {
+                          throw new Error(
+                            data?.error?.message ?? "Upload border gagal",
+                          );
+                        }
+
+                        form.setValue("limitedBorderImageUrl", data.url, {
+                          shouldValidate: true,
+                        });
+                      } catch (e) {
+                        setError(
+                          e instanceof Error ? e.message : "Upload border gagal",
+                        );
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                  />
+
+                  {v.limitedBorderImageUrl && (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground text-xs">
+                        Gambar border saat ini:
+                      </p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={v.limitedBorderImageUrl}
+                        alt="Preview border"
+                        className="size-24 rounded-lg border object-contain"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          form.setValue("limitedBorderImageUrl", null, {
+                            shouldValidate: true,
+                          })
+                        }
+                      >
+                        Hapus gambar border
+                      </Button>
+                    </div>
+                  )}
+
+                  <FieldError message={errors.limitedBorderImageUrl?.message} />
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Gambar</Label>
             <div className="flex flex-wrap items-center gap-2">
@@ -230,6 +479,10 @@ export function CharacterForm({
               name: v.name || "Nama karakter",
               rarity: Number(v.rarity) || 1,
               imageUrl: v.imageUrl,
+              category: v.category,
+              limitedBorderType: v.limitedBorderType,
+              limitedBorderConfig: v.limitedBorderConfig,
+              limitedBorderImageUrl: v.limitedBorderImageUrl,
             }}
           />
         )}

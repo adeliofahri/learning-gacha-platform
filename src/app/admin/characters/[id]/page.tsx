@@ -44,6 +44,13 @@ export default async function EditCharacterPage({ params }: { params: Promise<{ 
           imageUrl: c.imageUrl,
           category: c.category,
           status: c.status,
+
+          limitedBorderType: c.limitedBorderType,
+          limitedBorderConfig: c.limitedBorderConfig as {
+            colors: string[];
+            angle: number;
+          } | null,
+          limitedBorderImageUrl: c.limitedBorderImageUrl,
         }}
       />
     </div>

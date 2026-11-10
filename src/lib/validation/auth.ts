@@ -42,3 +42,15 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+export const verifyEmailSchema = z
+  .object({
+    token: z.string().min(32).max(200),
+  })
+  .strict();
+
+export const resendVerificationSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("Format email tidak valid").max(200),
+  })
+  .strict();

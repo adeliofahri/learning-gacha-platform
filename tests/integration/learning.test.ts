@@ -35,6 +35,50 @@ const unlock = (questionId: string, token: string) =>
     ctx({ id: questionId }),
   );
 
+async function makeObjectiveQuestion(
+  adminId: string,
+  type: "MULTIPLE_SELECT" | "TRUE_FALSE",
+) {
+  const subject = await makeSubject();
+
+  const options =
+    type === "MULTIPLE_SELECT"
+      ? [
+          { text: "Pernyataan A", isCorrect: true },
+          { text: "Pernyataan B", isCorrect: false },
+          { text: "Pernyataan C", isCorrect: true },
+          { text: "Pernyataan D", isCorrect: false },
+        ]
+      : [
+          { text: "Pernyataan pertama", isCorrect: true },
+          { text: "Pernyataan kedua", isCorrect: false },
+          { text: "Pernyataan ketiga", isCorrect: true },
+        ];
+
+  return prisma.question.create({
+    data: {
+      subjectId: subject.id,
+      title: type === "MULTIPLE_SELECT" ? "Soal PG Kompleks" : "Soal Benar-Salah",
+      content: "Jawablah pertanyaan berikut.",
+      type,
+      difficulty: "MEDIUM",
+      bounty: 10,
+      status: "PUBLISHED",
+      createdById: adminId,
+      explanation: "Penjelasan jawaban soal.",
+      options: {
+        create: options.map((option, order) => ({
+          ...option,
+          order,
+        })),
+      },
+    },
+    include: {
+      options: { orderBy: { order: "asc" } },
+    },
+  });
+}
+
 describe("pilihan ganda", () => {
   it("jawaban benar memberi bounty, ledger, dan status SOLVED", async () => {
     const admin = await createAdmin();
@@ -236,6 +280,193 @@ describe("pilihan ganda", () => {
     });
     expect(first.questionVersion).toBe(1);
     expect(first.snapshot).toMatchObject({ content: "2 + 2 = ?", selectedOptionText: "4" });
+  });
+});
+
+describe("pilihan ganda kompleks", () => {
+  it("jawaban dengan seluruh pilihan benar memberi bounty dan membuka kunci", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "MULTIPLE_SELECT");
+    const pkg = await makePackage([q.id]);
+
+    // Kunci jawaban tidak boleh terlihat sebelum soal diselesaikan.
+    const initialView = await getPackageForStudent(s.id, pkg.id);
+    expect(initialView.questions[0]!.correctOptionIds).toEqual([]);
+    expect(JSON.stringify(initialView)).not.toContain("isCorrect");
+
+    const res = await answer(q.id, s.token, {
+      packageId: pkg.id,
+      optionIds: [q.options[0]!.id, q.options[2]!.id],
+    });
+
+    expect(res.status).toBe(201);
+
+    const body = await res.json();
+
+    expect(body).toMatchObject({
+      status: "CORRECT",
+      bountyAwarded: 10,
+      isPractice: false,
+      coins: 10,
+    });
+
+    expect(body.correctOptionIds).toEqual([
+      q.options[0]!.id,
+      q.options[2]!.id,
+    ]);
+
+    expect(await coins(s.id)).toBe(10);
+    expect(await prisma.walletTransaction.count({
+      where: { userId: s.id, type: "QUESTION_REWARD" },
+    })).toBe(1);
+
+    const solvedView = await getPackageForStudent(s.id, pkg.id);
+    expect(solvedView.questions[0]!.correctOptionIds).toEqual([
+      q.options[0]!.id,
+      q.options[2]!.id,
+    ]);
+  });
+
+  it("jawaban sebagian atau memilih opsi salah dinyatakan INCORRECT", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "MULTIPLE_SELECT");
+
+    const res = await answer(q.id, s.token, {
+      optionIds: [q.options[0]!.id, q.options[1]!.id],
+    });
+
+    expect(res.status).toBe(201);
+
+    const body = await res.json();
+
+    expect(body).toMatchObject({
+      status: "INCORRECT",
+      bountyAwarded: 0,
+      correctOptionIds: [],
+      explanation: null,
+    });
+
+    expect(await coins(s.id)).toBe(0);
+    expect(await prisma.walletTransaction.count()).toBe(0);
+  });
+
+  it("jawaban kompleks yang benar hanya memberi bounty sekali", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "MULTIPLE_SELECT");
+
+    const body = {
+      optionIds: [q.options[0]!.id, q.options[2]!.id],
+    };
+
+    await answer(q.id, s.token, body);
+
+    const second = await (
+      await answer(q.id, s.token, body)
+    ).json();
+
+    expect(second).toMatchObject({
+      status: "CORRECT",
+      isPractice: true,
+      bountyAwarded: 0,
+    });
+
+    expect(await coins(s.id)).toBe(10);
+    expect(await prisma.walletTransaction.count({
+      where: { userId: s.id, type: "QUESTION_REWARD" },
+    })).toBe(1);
+  });
+});
+
+describe("benar-salah", () => {
+  it("seluruh pernyataan benar memberi bounty dan membuka kunci jawaban", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "TRUE_FALSE");
+    const pkg = await makePackage([q.id]);
+
+    const initialView = await getPackageForStudent(s.id, pkg.id);
+
+    expect(initialView.questions[0]!.correctTrueFalseAnswers).toEqual([]);
+    expect(JSON.stringify(initialView)).not.toContain("isCorrect");
+
+    const res = await answer(q.id, s.token, {
+      packageId: pkg.id,
+      trueFalseAnswers: [
+        { optionId: q.options[0]!.id, value: true },
+        { optionId: q.options[1]!.id, value: false },
+        { optionId: q.options[2]!.id, value: true },
+      ],
+    });
+
+    expect(res.status).toBe(201);
+
+    const body = await res.json();
+
+    expect(body).toMatchObject({
+      status: "CORRECT",
+      bountyAwarded: 10,
+      isPractice: false,
+      coins: 10,
+    });
+
+    expect(body.correctTrueFalseAnswers).toEqual([
+      { optionId: q.options[0]!.id, value: true },
+      { optionId: q.options[1]!.id, value: false },
+      { optionId: q.options[2]!.id, value: true },
+    ]);
+
+    expect(await coins(s.id)).toBe(10);
+    expect(await prisma.walletTransaction.count({
+      where: { userId: s.id, type: "QUESTION_REWARD" },
+    })).toBe(1);
+  });
+
+  it("satu pernyataan yang salah membuat seluruh jawaban dinyatakan INCORRECT", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "TRUE_FALSE");
+
+    const res = await answer(q.id, s.token, {
+      trueFalseAnswers: [
+        { optionId: q.options[0]!.id, value: true },
+        { optionId: q.options[1]!.id, value: true },
+        { optionId: q.options[2]!.id, value: true },
+      ],
+    });
+
+    expect(res.status).toBe(201);
+
+    const body = await res.json();
+
+    expect(body).toMatchObject({
+      status: "INCORRECT",
+      bountyAwarded: 0,
+      correctTrueFalseAnswers: [],
+      explanation: null,
+    });
+
+    expect(await coins(s.id)).toBe(0);
+    expect(await prisma.walletTransaction.count()).toBe(0);
+  });
+
+  it("jawaban yang tidak mencakup seluruh pernyataan ditolak", async () => {
+    const admin = await createAdmin();
+    const s = await registerStudent();
+    const q = await makeObjectiveQuestion(admin.id, "TRUE_FALSE");
+
+    const res = await answer(q.id, s.token, {
+      trueFalseAnswers: [
+        { optionId: q.options[0]!.id, value: true },
+        { optionId: q.options[1]!.id, value: false },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+    expect(await prisma.attempt.count({ where: { userId: s.id } })).toBe(0);
+    expect(await coins(s.id)).toBe(0);
   });
 });
 

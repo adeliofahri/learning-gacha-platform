@@ -12,7 +12,9 @@ export const DIFFICULTY_LABEL = {
 
 export const QUESTION_TYPE_LABEL = {
   MULTIPLE_CHOICE: "Pilihan ganda",
-  SHORT_ANSWER: "Isian",
+  MULTIPLE_SELECT: "Pilihan ganda kompleks",
+  TRUE_FALSE: "Benar-Salah",
+  SHORT_ANSWER: "Isian singkat",
 } as const;
 
 export const CONTENT_STATUS_LABEL = {

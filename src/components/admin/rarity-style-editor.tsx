@@ -9,8 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert } from "@/components/ui/misc";
 import { apiFetch, errorMessage } from "@/lib/api-client";
 
-type BorderType = "PRESET" | "GRADIENT" | "IMAGE";
-
 type RarityStyle = {
   rarity: number;
   borderType: "PRESET" | "GRADIENT" | "IMAGE";

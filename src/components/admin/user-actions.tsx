@@ -71,12 +71,23 @@ export function UserStatusToggle({
   status,
 }: {
   userId: string;
-  status: "ACTIVE" | "SUSPENDED";
+  status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
 }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const next = status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+    const router = useRouter();
+    const [error, setError] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+
+    if (status === "PENDING_VERIFICATION") {
+      return (
+        <div className="text-right">
+          <span className="text-xs font-medium text-muted-foreground">
+            Menunggu verifikasi email
+          </span>
+        </div>
+      );
+    }
+
+    const next = status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
   return (
     <div className="flex flex-col items-end gap-1">
       <Button

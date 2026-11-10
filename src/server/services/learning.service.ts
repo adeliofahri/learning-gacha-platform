@@ -129,6 +129,7 @@ export async function unlockQuestionCooldown(params: {
   });
 }
 
+
 // ───────────────────────────── Subject & Topic ─────────────────────────────
 
 export async function createSubject(adminId: string, name: string) {
@@ -262,7 +263,7 @@ export async function createQuestion(adminId: string, input: QuestionInput) {
         status: input.status,
         createdById: adminId,
         options:
-          input.type === "MULTIPLE_CHOICE"
+          input.type !== "SHORT_ANSWER"
             ? {
                 create: input.options.map((o, i) => ({
                   text: o.text,
@@ -324,7 +325,7 @@ export async function updateQuestion(adminId: string, id: string, input: Questio
         status: input.status,
         version: { increment: 1 },
         options:
-          input.type === "MULTIPLE_CHOICE"
+          input.type !== "SHORT_ANSWER"
             ? {
                 create: input.options.map((o, i) => ({
                   text: o.text,
@@ -609,6 +610,11 @@ export type StudentQuestionView = {
   } | null;
   cooldownUntil: string | null;
   unlockCost: number;
+  correctOptionIds: string[]; // hanya setelah solved
+  correctTrueFalseAnswers: {
+    optionId: string;
+    value: boolean;
+  }[]; // hanya setelah solved
 };
 
 export async function getPackageForStudent(userId: string, packageId: string) {
@@ -675,7 +681,10 @@ export async function getPackageForStudent(userId: string, packageId: string) {
       status: result.get(q.id) ?? "UNSOLVED",
       options: q.options.map((o) => ({ id: o.id, text: o.text })),
       explanation: isSolved ? q.explanation : null,
-      correctOptionId: isSolved ? (q.options.find((o) => o.isCorrect)?.id ?? null) : null,
+      correctOptionId:
+        isSolved && q.type === "MULTIPLE_CHOICE"
+          ? q.options.find((o) => o.isCorrect)?.id ?? null
+          : null,
       acceptedAnswers:
         isSolved && q.type === "SHORT_ANSWER" ? q.acceptedAnswers.map((a) => a.text) : [],
       lastReview: last
@@ -688,6 +697,18 @@ export async function getPackageForStudent(userId: string, packageId: string) {
         : null,
         cooldownUntil: cooldownByQ.get(q.id) ?? null,
         unlockCost,
+        correctOptionIds:
+          isSolved && q.type === "MULTIPLE_SELECT"
+            ? q.options.filter((o) => o.isCorrect).map((o) => o.id)
+            : [],
+
+        correctTrueFalseAnswers:
+          isSolved && q.type === "TRUE_FALSE"
+            ? q.options.map((o) => ({
+                optionId: o.id,
+                value: o.isCorrect,
+              }))
+            : [],
     };
 
   });
@@ -715,53 +736,103 @@ export type AttemptResult = {
   acceptedAnswers: string[];
   coins: number;
   replayed: boolean;
-
   cooldownUntil: string | null;
+  correctOptionIds: string[];
+  correctTrueFalseAnswers: {
+    optionId: string;
+    value: boolean;
+  }[];
 };
 
-async function buildAttemptResult(attemptId: string, replayed: boolean): Promise<AttemptResult> {
+async function buildAttemptResult(
+  attemptId: string,
+  replayed: boolean,
+): Promise<AttemptResult> {
   const a = await prisma.attempt.findUniqueOrThrow({
     where: { id: attemptId },
     include: {
       solve: true,
-      question: { include: { options: true, acceptedAnswers: true } },
-      user: { select: { wallet: { select: { coins: true } } } },
+      question: {
+        include: {
+          options: { orderBy: { order: "asc" } },
+          acceptedAnswers: true,
+        },
+      },
+      user: {
+        select: {
+          wallet: { select: { coins: true } },
+        },
+      },
     },
   });
+
   const solvedNow = await prisma.questionSolve.findUnique({
-    where: { userId_questionId: { userId: a.userId, questionId: a.questionId } },
-  });
-  const cooldown = await prisma.questionCooldown.findUnique({
-  where: {
-    userId_questionId: {
-      userId: a.userId,
-      questionId: a.questionId,
+    where: {
+      userId_questionId: {
+        userId: a.userId,
+        questionId: a.questionId,
+      },
     },
-  },
+  });
+
+  const cooldown = await prisma.questionCooldown.findUnique({
+    where: {
+      userId_questionId: {
+        userId: a.userId,
+        questionId: a.questionId,
+      },
+    },
   });
 
   const cooldownUntil =
-  cooldown && cooldown.expiresAt > new Date()
-    ? cooldown.expiresAt.toISOString()
-    : null;
-  const reveal = Boolean(solvedNow) && a.status !== "PENDING_REVIEW";
+    cooldown && cooldown.expiresAt > new Date()
+      ? cooldown.expiresAt.toISOString()
+      : null;
+
+  const reveal =
+    Boolean(solvedNow) && a.status !== "PENDING_REVIEW";
+
+  const q = a.question;
+
   return {
     attemptId: a.id,
     status: a.status,
     isPractice: a.isPractice,
+
     correct:
       a.status === "CORRECT" || a.status === "APPROVED"
         ? true
         : a.status === "PENDING_REVIEW"
           ? null
           : false,
+
     bountyAwarded: a.solve?.bountyAwarded ?? 0,
-    correctOptionId: reveal ? (a.question.options.find((o) => o.isCorrect)?.id ?? null) : null,
-    explanation: reveal ? a.question.explanation : null,
-    acceptedAnswers:
-      reveal && a.question.type === "SHORT_ANSWER"
-        ? a.question.acceptedAnswers.map((x) => x.text)
+
+    correctOptionId:
+      reveal && q.type === "MULTIPLE_CHOICE"
+        ? q.options.find((o) => o.isCorrect)?.id ?? null
+        : null,
+
+    correctOptionIds:
+      reveal && q.type === "MULTIPLE_SELECT"
+        ? q.options.filter((o) => o.isCorrect).map((o) => o.id)
         : [],
+
+    correctTrueFalseAnswers:
+      reveal && q.type === "TRUE_FALSE"
+        ? q.options.map((o) => ({
+            optionId: o.id,
+            value: o.isCorrect,
+          }))
+        : [],
+
+    explanation: reveal ? q.explanation : null,
+
+    acceptedAnswers:
+      reveal && q.type === "SHORT_ANSWER"
+        ? q.acceptedAnswers.map((x) => x.text)
+        : [],
+
     coins: a.user.wallet?.coins ?? 0,
     replayed,
     cooldownUntil,
@@ -827,11 +898,53 @@ export async function submitAttempt(params: {
   }
 
   if (question.type === "MULTIPLE_CHOICE") {
-    if (!input.optionId) throw new AppError("BAD_REQUEST", "Pilih salah satu jawaban");
-    if (!question.options.some((o) => o.id === input.optionId)) {
-      throw new AppError("BAD_REQUEST", "Pilihan jawaban tidak valid untuk soal ini");
+    if (!input.optionId) {
+      throw new AppError("BAD_REQUEST", "Pilih salah satu jawaban");
     }
-  } else if (!input.answerText) {
+
+    if (!question.options.some((o) => o.id === input.optionId)) {
+      throw new AppError("BAD_REQUEST", "Pilihan jawaban tidak valid");
+    }
+  }
+
+  else if (question.type === "MULTIPLE_SELECT") {
+    if (!input.optionIds || input.optionIds.length < 2) {
+      throw new AppError("BAD_REQUEST", "Pilih minimal dua jawaban");
+    }
+
+    const selectedIds = new Set(input.optionIds);
+
+    if (
+      selectedIds.size !== input.optionIds.length ||
+      input.optionIds.some(
+        (id) => !question.options.some((o) => o.id === id),
+      )
+    ) {
+      throw new AppError("BAD_REQUEST", "Pilihan jawaban tidak valid");
+    }
+  }
+
+  else if (question.type === "TRUE_FALSE") {
+    if (
+      !input.trueFalseAnswers ||
+      input.trueFalseAnswers.length !== question.options.length
+    ) {
+      throw new AppError("BAD_REQUEST", "Semua pernyataan wajib dijawab");
+    }
+
+    const submittedIds = new Set(
+      input.trueFalseAnswers.map((a) => a.optionId),
+    );
+
+    if (
+      submittedIds.size !== question.options.length ||
+      question.options.some((o) => !submittedIds.has(o.id))
+    ) {
+      throw new AppError("BAD_REQUEST", "Jawaban pernyataan tidak valid");
+    }
+  }
+
+  else if (!input.answerText) {
     throw new AppError("BAD_REQUEST", "Jawaban wajib diisi");
   }
 
@@ -876,41 +989,117 @@ export async function submitAttempt(params: {
         await tx.questionSolve.findUnique({ where: { userId_questionId: { userId, questionId } } }),
       );
 
-      let status: AttemptStatus;
-      let selectedText: string | null = null;
-      if (question.type === "MULTIPLE_CHOICE") {
-        const option = question.options.find((o) => o.id === input.optionId)!;
-        selectedText = option.text;
-        status = option.isCorrect ? "CORRECT" : "INCORRECT";
-      } else if (alreadySolved) {
-        // Latihan isian setelah solved: dicek otomatis terhadap jawaban acuan, tanpa review & tanpa reward.
-        const norm = normalizeAnswer(input.answerText!);
-        status = question.acceptedAnswers.some((a) => normalizeAnswer(a.text) === norm)
-          ? "CORRECT"
-          : "INCORRECT";
-      } else {
-        const pending = await tx.attempt.findFirst({
-          where: { userId, questionId, status: "PENDING_REVIEW" },
-        });
-        if (pending)
-          throw new AppError("CONFLICT", "Jawaban sebelumnya masih menunggu review admin");
-        status = "PENDING_REVIEW";
-      }
+    let status: AttemptStatus;
+    let selectedText: string | null = null;
 
-      const attempt = await tx.attempt.create({
-        data: {
+    let answerData: Prisma.InputJsonValue | undefined;
+
+    if (question.type === "MULTIPLE_CHOICE") {
+      const option = question.options.find(
+        (o) => o.id === input.optionId,
+      )!;
+
+      selectedText = option.text;
+      status = option.isCorrect ? "CORRECT" : "INCORRECT";
+    }
+
+    else if (question.type === "MULTIPLE_SELECT") {
+      const selectedIds = new Set(input.optionIds!);
+
+      const correctIds = question.options
+        .filter((o) => o.isCorrect)
+        .map((o) => o.id);
+
+      const correct =
+        selectedIds.size === correctIds.length &&
+        correctIds.every((id) => selectedIds.has(id));
+
+      status = correct ? "CORRECT" : "INCORRECT";
+
+      answerData = {
+        optionIds: [...input.optionIds!],
+      };
+    }
+
+    else if (question.type === "TRUE_FALSE") {
+      const answers = input.trueFalseAnswers!;
+
+      const correct = question.options.every((option) => {
+        const submitted = answers.find(
+          (answer) => answer.optionId === option.id,
+        );
+
+        return submitted?.value === option.isCorrect;
+      });
+
+      status = correct ? "CORRECT" : "INCORRECT";
+
+      answerData = {
+        answers: answers.map((answer) => ({
+          optionId: answer.optionId,
+          value: answer.value,
+        })),
+      };
+    }
+
+    else if (alreadySolved) {
+      const norm = normalizeAnswer(input.answerText!);
+
+      status = question.acceptedAnswers.some(
+        (a) => normalizeAnswer(a.text) === norm,
+      )
+        ? "CORRECT"
+        : "INCORRECT";
+    }
+
+    else {
+      const pending = await tx.attempt.findFirst({
+        where: {
           userId,
           questionId,
-          packageId: input.packageId ?? null,
-          questionVersion: question.version,
-          selectedOptionId: question.type === "MULTIPLE_CHOICE" ? input.optionId : null,
-          answerText: question.type === "SHORT_ANSWER" ? input.answerText : null,
-          status,
-          isPractice: alreadySolved,
-          idempotencyKey,
-          snapshot: { ...snapshotBase, selectedOptionText: selectedText },
+          status: "PENDING_REVIEW",
         },
       });
+
+      if (pending) {
+        throw new AppError(
+          "CONFLICT",
+          "Jawaban sebelumnya masih menunggu review admin",
+        );
+      }
+
+      status = "PENDING_REVIEW";
+    }
+
+    const attempt = await tx.attempt.create({
+      data: {
+        userId,
+        questionId,
+        packageId: input.packageId ?? null,
+        questionVersion: question.version,
+
+        selectedOptionId:
+          question.type === "MULTIPLE_CHOICE"
+            ? input.optionId
+            : null,
+
+        answerText:
+          question.type === "SHORT_ANSWER"
+            ? input.answerText
+            : null,
+
+        ...(answerData !== undefined ? { answerData } : {}),
+
+        status,
+        isPractice: alreadySolved,
+        idempotencyKey,
+
+        snapshot: {
+          ...snapshotBase,
+          selectedOptionText: selectedText,
+        },
+      },
+    });
 
       if (status === "INCORRECT") {
         const expiresAt = new Date(Date.now() + QUESTION_COOLDOWN_MS);
@@ -930,7 +1119,11 @@ export async function submitAttempt(params: {
         });
       }
       
-      if (status === "CORRECT" && !alreadySolved && question.type === "MULTIPLE_CHOICE") {
+      if (
+        status === "CORRECT" &&
+        !alreadySolved &&
+        question.type !== "SHORT_ANSWER"
+      ) {
         await awardSolve(tx, {
           userId,
           questionId,

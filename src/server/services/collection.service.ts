@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma, transaction, isUniqueViolation } from "@/lib/db";
 import { AppError, notFound } from "@/lib/errors";
 import type { CharacterInput } from "@/lib/validation/collection";
@@ -79,7 +80,18 @@ export async function getPublicProfile(username: string) {
       username: true,
       isPublic: true,
       createdAt: true,
-      avatarCharacter: { select: { name: true, imageUrl: true, rarity: true } },
+      avatarCharacter:{
+        select: {
+          id: true,
+          name: true,
+          rarity: true,
+          imageUrl: true,
+          category: true,
+          limitedBorderType: true,
+          limitedBorderConfig: true,
+          limitedBorderImageUrl: true,
+        },
+      },
     },
   });
   if (!user) throw notFound("Profil");
@@ -89,7 +101,18 @@ export async function getPublicProfile(username: string) {
         await prisma.inventoryItem.findMany({
           where: { userId: user.id, quantity: { gt: 0 } },
           include: {
-            character: { select: { id: true, name: true, rarity: true, imageUrl: true } },
+            character: {
+              select: {
+                id: true,
+                name: true,
+                rarity: true,
+                imageUrl: true,
+                category: true,
+                limitedBorderType: true,
+                limitedBorderConfig: true,
+                limitedBorderImageUrl: true,
+              },
+            },
           },
           orderBy: [{ character: { rarity: "desc" } }, { firstObtainedAt: "asc" }],
         })
@@ -105,12 +128,33 @@ export async function getPublicProfile(username: string) {
   };
 }
 
+function characterBorderData(input: CharacterInput) {
+  const {
+    limitedBorderConfig,
+    ...characterData
+  } = input;
+
+  return {
+    ...characterData,
+    ...(limitedBorderConfig === undefined
+      ? {}
+      : {
+          limitedBorderConfig:
+            limitedBorderConfig === null
+              ? Prisma.DbNull
+              : limitedBorderConfig,
+        }),
+  };
+}
+
 // ───────────────────────────── Admin: karakter ─────────────────────────────
 
 export async function createCharacter(adminId: string, input: CharacterInput) {
   try {
     return await transaction(async (tx) => {
-      const c = await tx.character.create({ data: input });
+      const c = await tx.character.create({
+        data: characterBorderData(input),
+      });
       await logAudit(tx, {
         actorId: adminId,
         action: "CHARACTER_CREATE",
@@ -140,7 +184,10 @@ export async function updateCharacter(adminId: string, id: string, input: Charac
           );
         }
       }
-      const c = await tx.character.update({ where: { id }, data: input });
+      const c = await tx.character.update({
+        where: { id },
+        data: characterBorderData(input),
+      });
       await logAudit(tx, {
         actorId: adminId,
         action: "CHARACTER_UPDATE",

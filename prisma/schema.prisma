@@ -20,10 +20,13 @@ enum Role {
 enum UserStatus {
   ACTIVE
   SUSPENDED
+  PENDING_VERIFICATION
 }
 
 enum QuestionType {
   MULTIPLE_CHOICE
+  MULTIPLE_SELECT
+  TRUE_FALSE
   SHORT_ANSWER
 }
 
@@ -129,6 +132,8 @@ model User {
 
   questionCooldowns QuestionCooldown[]
   dailyLoginRewards DailyLoginReward[]
+  emailVerifiedAt        DateTime?
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 model Session {
@@ -313,6 +318,7 @@ model Attempt {
   selectedOptionId String?
   selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
   answerText       String?
+  answerData       Json?
   status           AttemptStatus
   isPractice       Boolean         @default(false)
   snapshot         Json
@@ -358,8 +364,13 @@ model Character {
   imageUrl    String
   category    CharacterCategory
   status      CharacterStatus   @default(ACTIVE)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+
+  limitedBorderType     RarityBorderType @default(PRESET)
+  limitedBorderConfig   Json?
+  limitedBorderImageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   inventory    InventoryItem[]
   bannerItems  BannerCharacter[]
@@ -565,4 +576,16 @@ model RarityStyle {
   borderConfig   Json?
   borderImageUrl String?
   updatedAt      DateTime         @updatedAt
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

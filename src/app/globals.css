@@ -304,7 +304,22 @@
 }
 
 .rarity-six-animated {
+  padding: 3px;
+  background: conic-gradient(
+    from var(--rarity-angle),
+    var(--rarity-colors)
+  );
   animation: rarity-border-rotate 4s linear infinite;
+
+  /* Hanya menampilkan highlight di bagian tepi. */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  opacity: 0.8;
+  mix-blend-mode: screen;
 }
 
 @media (prefers-reduced-motion: reduce) {

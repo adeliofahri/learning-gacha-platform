@@ -5,11 +5,13 @@ import { AppError } from "@/lib/errors";
 export type RateLimitRule = { limit: number; windowSeconds: number };
 
 export const RATE_LIMITS = {
-  login: { limit: 10, windowSeconds: 15 * 60 },
-  register: { limit: 5, windowSeconds: 60 * 60 },
-  answer: { limit: 30, windowSeconds: 60 },
-  gacha: { limit: 20, windowSeconds: 60 },
-  claim: { limit: 10, windowSeconds: 60 },
+  login: { limit: 15, windowSeconds: 10 * 60 },
+  register: { limit: 15, windowSeconds: 10 * 60 },
+  answer: { limit: 45, windowSeconds: 60 },
+  gacha: { limit: 30, windowSeconds: 60 },
+  claim: { limit: 15, windowSeconds: 60 },
+  resendVerificationIp: { limit: 8, windowSeconds: 60 * 60 },
+  resendVerificationEmail: { limit: 5, windowSeconds: 60 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 /**

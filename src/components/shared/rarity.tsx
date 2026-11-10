@@ -14,6 +14,42 @@ export const RARITY_STYLE: Record<number, string> = {
   6: "from-rose-200 via-fuchsia-300 to-amber-300 ring-rose-400",
 };
 
+type BorderConfig = {
+  colors: string[];
+  angle: number;
+};
+
+type CharacterData = {
+  name: string;
+  rarity: number;
+  imageUrl: string;
+  category: "PERMANENT" | "LIMITED";
+  limitedBorderType?: "PRESET" | "GRADIENT" | "IMAGE";
+  limitedBorderConfig?: unknown;
+  limitedBorderImageUrl?: string | null;
+};
+
+function isBorderConfig(value: unknown): value is BorderConfig {
+  if (!value || typeof value !== "object") return false;
+
+  const config = value as Record<string, unknown>;
+
+  return (
+    Array.isArray(config.colors) &&
+    config.colors.length >= 2 &&
+    config.colors.length <= 5 &&
+    config.colors.every(
+      (color) =>
+        typeof color === "string" &&
+        /^#[0-9A-Fa-f]{6}$/.test(color),
+    ) &&
+    typeof config.angle === "number" &&
+    Number.isInteger(config.angle) &&
+    config.angle >= 0 &&
+    config.angle <= 360
+  );
+}
+
 export function RarityStars({
   rarity,
   className,
@@ -66,29 +102,51 @@ export function CharacterTile({
   footer,
   className,
 }: {
-  character: { name: string; rarity: number; imageUrl: string };
+  character: CharacterData;
   footer?: React.ReactNode;
   className?: string;
 }) {
   const styles = useRarityStyles();
-  const style = styles.find((item) => item.rarity === character.rarity);
 
-  const borderType = style?.borderType ?? "PRESET";
-  const borderConfig = style?.borderConfig;
-
+  const isLimited = character.category === "LIMITED";
   const isSixStar = character.rarity === 6;
 
+  // PERMANENT memakai konfigurasi global.
+  // LIMITED memakai konfigurasi individual karakter.
+  const rarityStyle = styles.find(
+    (item) => item.rarity === character.rarity,
+  );
+
+  const borderType = isLimited
+    ? character.limitedBorderType ?? "PRESET"
+    : rarityStyle?.borderType ?? "PRESET";
+
+  const rawBorderConfig = isLimited
+    ? character.limitedBorderConfig
+    : rarityStyle?.borderConfig;
+
+  const borderConfig = isBorderConfig(rawBorderConfig)
+    ? rawBorderConfig
+    : null;
+
   const colors =
-    borderConfig?.colors && borderConfig.colors.length >= 2
-      ? borderConfig.colors
-      : ["#A855F7", "#E11D48", "#FACC15"];
+    borderConfig?.colors ?? ["#A855F7", "#E11D48", "#FACC15"];
 
   const angle = borderConfig?.angle ?? 0;
 
-  const animatedGradient = `conic-gradient(from calc(var(--rarity-angle) + ${angle}deg), ${colors.join(", ")})`;
-
   const borderImageUrl =
-    borderType === "IMAGE" ? style?.borderImageUrl : null;
+    borderType === "IMAGE"
+      ? isLimited
+        ? character.limitedBorderImageUrl
+        : rarityStyle?.borderImageUrl
+      : null;
+
+  const borderBackground =
+    borderType === "GRADIENT"
+      ? `linear-gradient(${angle}deg, ${colors.join(", ")})`
+      : undefined;
+
+  const animationColors = colors.join(", ");
 
   return (
     <div
@@ -100,17 +158,16 @@ export function CharacterTile({
       <div
         className={cn(
           "relative size-[104px] rounded-xl p-1",
-          isSixStar && "rarity-six-animated",
-          !isSixStar &&
-            borderType === "PRESET" &&
-            cn("bg-gradient-to-br ring-2", RARITY_STYLE[character.rarity]),
+          borderType === "PRESET" &&
+            cn(
+              "bg-gradient-to-br ring-2",
+              RARITY_STYLE[character.rarity] ?? RARITY_STYLE[1],
+            ),
         )}
         style={
-          isSixStar
-            ? { background: animatedGradient }
-            : borderType === "GRADIENT"
-              ? { background: `linear-gradient(${angle}deg, ${colors.join(", ")})` }
-              : undefined
+          borderBackground
+            ? { background: borderBackground }
+            : undefined
         }
       >
         {borderImageUrl ? (
@@ -141,6 +198,18 @@ export function CharacterTile({
               className="size-full rounded-lg"
             />
           </div>
+        )}
+
+        {isSixStar && (
+          <span
+            aria-hidden="true"
+            className="rarity-six-animated pointer-events-none absolute inset-0 z-20 rounded-xl"
+            style={
+              {
+                "--rarity-colors": animationColors,
+              } as React.CSSProperties
+            }
+          />
         )}
       </div>
 

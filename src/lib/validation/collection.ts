@@ -11,6 +11,24 @@ export const imagePathSchema = z
     "Gambar harus berupa path lokal (/characters/... atau /uploads/characters/...)",
   );
 
+export const borderImagePathSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .regex(
+    /^\/uploads\/characters\/[0-9]+-[a-f0-9]{16}\.(png|jpg|webp)$/,
+    "URL gambar border tidak valid",
+  );
+
+const limitedBorderConfigSchema = z
+  .object({
+    colors: z.array(
+      z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus HEX"),
+    ).min(2).max(5),
+    angle: z.number().int().min(0).max(360),
+  })
+  .strict();
+
 export const characterSchema = z
   .object({
     name: z.string().trim().min(2).max(80),
@@ -19,8 +37,36 @@ export const characterSchema = z
     imageUrl: imagePathSchema,
     category: z.enum(["PERMANENT", "LIMITED"]),
     status: z.enum(["ACTIVE", "ARCHIVED"]).default("ACTIVE"),
+
+    // Optional agar edit karakter lama tidak menghapus konfigurasi border.
+    limitedBorderType: z.enum(["PRESET", "GRADIENT", "IMAGE"]).optional(),
+    limitedBorderConfig: limitedBorderConfigSchema.nullable().optional(),
+    limitedBorderImageUrl: borderImagePathSchema.nullable().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.limitedBorderType === "GRADIENT" &&
+      !value.limitedBorderConfig
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["limitedBorderConfig"],
+        message: "Konfigurasi gradient wajib diisi",
+      });
+    }
+
+    if (
+      value.limitedBorderType === "IMAGE" &&
+      !value.limitedBorderImageUrl
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["limitedBorderImageUrl"],
+        message: "Gambar border wajib diunggah",
+      });
+    }
+  });
 
 export const bannerSchema = z
   .object({

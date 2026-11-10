@@ -62,15 +62,65 @@ export function tokenFrom(res: Response): string {
 let counter = 0;
 export async function registerStudent(prefix = "siswa") {
   counter += 1;
-  const username = `${prefix}${counter}_${Math.floor(Math.random() * 1e6)}`.slice(0, 20);
+
+  const username = `${prefix}${counter}_${Math.floor(Math.random() * 1e6)}`.slice(
+    0,
+    20,
+  );
+
   const res = await registerRoute(
     req("/api/auth/register", {
-      body: { username, email: `${username}@test.local`, password: "Password123" },
+      body: {
+        username,
+        email: `${username}@test.local`,
+        password: "Password123",
+      },
     }),
   );
-  if (res.status !== 201) throw new Error(`register gagal: ${res.status} ${await res.text()}`);
-  const body = (await res.json()) as { user: { id: string } };
-  return { id: body.user.id, username, token: tokenFrom(res) };
+
+  if (res.status !== 201) {
+    throw new Error(
+      `register gagal: ${res.status} ${await res.text()}`,
+    );
+  }
+
+  const body = (await res.json()) as {
+    user: { id: string };
+  };
+
+  const userId = body.user.id;
+  const now = new Date();
+
+  // Khusus fixture integration test:
+  // aktifkan akun dan tandai token verifikasi sebagai terpakai.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: "ACTIVE",
+        emailVerifiedAt: now,
+      },
+    }),
+    prisma.emailVerificationToken.updateMany({
+      where: {
+        userId,
+        usedAt: null,
+      },
+      data: {
+        usedAt: now,
+      },
+    }),
+  ]);
+
+  // Registrasi tidak membuat sesi.
+  // Sesi dibuat secara eksplisit untuk kebutuhan test.
+  const session = await createSession(userId);
+
+  return {
+    id: userId,
+    username,
+    token: session.token,
+  };
 }
 
 export async function createAdmin() {

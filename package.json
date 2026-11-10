@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint . --max-warnings=0",
@@ -58,6 +58,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hook-form": "7.62.0",
+    "resend": "^6.37.0",
     "tailwind-merge": "3.3.1",
     "zod": "3.25.76"
   },

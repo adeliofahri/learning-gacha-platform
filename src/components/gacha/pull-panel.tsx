@@ -41,7 +41,19 @@ type PullResponse = {
     isGuaranteed: boolean;
     isFeatured: boolean;
     shardsAwarded: number;
-    character: { id: string; name: string; rarity: number; imageUrl: string };
+    character: {
+      id: string;
+      name: string;
+      rarity: number;
+      imageUrl: string;
+      category: "PERMANENT" | "LIMITED";
+      limitedBorderType: "PRESET" | "GRADIENT" | "IMAGE";
+      limitedBorderConfig: {
+        colors: string[];
+        angle: number;
+      } | null;
+      limitedBorderImageUrl: string | null;
+    };
   }[];
 };
 

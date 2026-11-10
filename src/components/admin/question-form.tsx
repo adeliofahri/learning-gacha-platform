@@ -20,7 +20,7 @@ type FormValues = {
   title: string;
   content: string;
   imageUrl?: string | null;
-  type: "MULTIPLE_CHOICE" | "SHORT_ANSWER";
+  type: "MULTIPLE_CHOICE" | "MULTIPLE_SELECT" | "TRUE_FALSE" | "SHORT_ANSWER";
   difficulty: Difficulty;
   bounty: number;
   explanation: string;
@@ -70,6 +70,32 @@ export function QuestionForm({
   const v = form.watch();
   const topics = subjects.find((s) => s.id === v.subjectId)?.topics ?? [];
 
+  const changeQuestionType = (type: FormValues["type"]) => {
+    form.setValue("type", type);
+
+    if (type === "MULTIPLE_CHOICE") {
+      options.replace([
+        { text: "", isCorrect: true },
+        { text: "", isCorrect: false },
+      ]);
+    } else if (type === "MULTIPLE_SELECT") {
+      options.replace([
+        { text: "", isCorrect: true },
+        { text: "", isCorrect: true },
+        { text: "", isCorrect: false },
+        { text: "", isCorrect: false },
+      ]);
+    } else if (type === "TRUE_FALSE") {
+      options.replace([
+        { text: "", isCorrect: true },
+        { text: "", isCorrect: false },
+        { text: "", isCorrect: true },
+      ]);
+    } else {
+      answers.replace([{ text: "" }]);
+    }
+  };
+
   if (subjects.length === 0) {
     return (
       <Alert variant="warning">
@@ -96,12 +122,21 @@ export function QuestionForm({
           status: values.status,
         };
         const body =
-          values.type === "MULTIPLE_CHOICE"
-            ? { ...base, type: values.type, options: values.options }
+          values.type === "SHORT_ANSWER"
+            ? {
+                ...base,
+                type: values.type,
+                acceptedAnswers: values.acceptedAnswers
+                  .map((a) => a.text.trim())
+                  .filter(Boolean),
+              }
             : {
                 ...base,
                 type: values.type,
-                acceptedAnswers: values.acceptedAnswers.map((a) => a.text).filter(Boolean),
+                options: values.options.map((o) => ({
+                  text: o.text.trim(),
+                  isCorrect: o.isCorrect,
+                })),
               };
         try {
           if (initial?.id) {
@@ -310,20 +345,28 @@ export function QuestionForm({
             <CardTitle>
               {v.type === "MULTIPLE_CHOICE"
                 ? "Pilihan jawaban"
-                : "Variasi jawaban acuan (untuk reviewer)"}
+                : v.type === "MULTIPLE_SELECT"
+                  ? "Pilihan jawaban kompleks"
+                  : v.type === "TRUE_FALSE"
+                    ? "Pernyataan benar-salah"
+                    : "Variasi jawaban acuan (untuk reviewer)"}
             </CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-3">
-            {v.type === "MULTIPLE_CHOICE" ? (
+            {v.type === "MULTIPLE_CHOICE" && (
               <>
-                <p className="text-muted-foreground text-xs">Tandai tepat satu jawaban benar.</p>
+                <p className="text-muted-foreground text-xs">
+                  Tandai tepat satu jawaban benar. Minimal 2 dan maksimal 5 pilihan.
+                </p>
+
                 {options.fields.map((f, i) => (
                   <div key={f.id} className="flex items-center gap-2">
                     <input
                       type="radio"
                       name="correct-option"
                       aria-label={`Jawaban benar: pilihan ${i + 1}`}
-                      className="accent-primary size-4"
+                      className="size-4 accent-primary"
                       checked={v.options[i]?.isCorrect ?? false}
                       onChange={() =>
                         v.options.forEach((_, j) =>
@@ -331,11 +374,13 @@ export function QuestionForm({
                         )
                       }
                     />
+
                     <Input
                       placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
                       aria-label={`Teks pilihan ${i + 1}`}
                       {...form.register(`options.${i}.text`, { required: true })}
                     />
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -348,39 +393,170 @@ export function QuestionForm({
                     </Button>
                   </div>
                 ))}
+
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={options.fields.length >= 8}
+                  disabled={options.fields.length >= 5}
                   onClick={() => options.append({ text: "", isCorrect: false })}
                 >
                   <Plus /> Tambah pilihan
                 </Button>
               </>
-            ) : (
+            )}
+
+            {v.type === "MULTIPLE_SELECT" && (
               <>
                 <p className="text-muted-foreground text-xs">
-                  Jawaban isian selalu diperiksa admin. Acuan ini hanya terlihat oleh admin sampai
-                  soal diputuskan.
+                  Centang semua jawaban yang benar. Minimal 4, maksimal 5 pilihan,
+                  dan setidaknya 2 jawaban benar.
                 </p>
+
+                {options.fields.map((f, i) => (
+                  <div key={f.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Tandai pilihan ${i + 1} sebagai benar`}
+                      className="size-4 accent-primary"
+                      checked={v.options[i]?.isCorrect ?? false}
+                      onChange={(e) =>
+                        form.setValue(
+                          `options.${i}.isCorrect`,
+                          e.target.checked,
+                        )
+                      }
+                    />
+
+                    <Input
+                      placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
+                      aria-label={`Teks pilihan ${i + 1}`}
+                      {...form.register(`options.${i}.text`, { required: true })}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Hapus pilihan"
+                      disabled={options.fields.length <= 4}
+                      onClick={() => options.remove(i)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={options.fields.length >= 5}
+                  onClick={() => options.append({ text: "", isCorrect: false })}
+                >
+                  <Plus /> Tambah pilihan
+                </Button>
+              </>
+            )}
+
+            {v.type === "TRUE_FALSE" && (
+              <>
+                <p className="text-muted-foreground text-xs">
+                  Masukkan 3–4 pernyataan. Tentukan apakah setiap pernyataan
+                  merupakan pernyataan benar atau salah.
+                </p>
+
+                {options.fields.map((f, i) => (
+                  <div key={f.id} className="space-y-2 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Pernyataan {i + 1}</Label>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Hapus pernyataan"
+                        disabled={options.fields.length <= 3}
+                        onClick={() => options.remove(i)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+
+                    <Textarea
+                      placeholder={`Tulis pernyataan ${i + 1}`}
+                      rows={2}
+                      {...form.register(`options.${i}.text`, { required: true })}
+                    />
+
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={`truth-${f.id}`}
+                          checked={v.options[i]?.isCorrect === true}
+                          onChange={() =>
+                            form.setValue(`options.${i}.isCorrect`, true)
+                          }
+                        />
+                        Benar
+                      </label>
+
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={`truth-${f.id}`}
+                          checked={v.options[i]?.isCorrect === false}
+                          onChange={() =>
+                            form.setValue(`options.${i}.isCorrect`, false)
+                          }
+                        />
+                        Salah
+                      </label>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={options.fields.length >= 4}
+                  onClick={() => options.append({ text: "", isCorrect: false })}
+                >
+                  <Plus /> Tambah pernyataan
+                </Button>
+              </>
+            )}
+
+            {v.type === "SHORT_ANSWER" && (
+              <>
+                <p className="text-muted-foreground text-xs">
+                  Jawaban isian diperiksa admin. Variasi jawaban acuan hanya
+                  terlihat oleh admin sampai soal diputuskan.
+                </p>
+
                 {answers.fields.map((f, i) => (
                   <div key={f.id} className="flex items-center gap-2">
                     <Input
+                      placeholder={`Jawaban acuan ${i + 1}`}
                       aria-label={`Jawaban acuan ${i + 1}`}
                       {...form.register(`acceptedAnswers.${i}.text`)}
                     />
+
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       aria-label="Hapus jawaban acuan"
+                      disabled={answers.fields.length <= 1}
                       onClick={() => answers.remove(i)}
                     >
                       <Trash2 />
                     </Button>
                   </div>
                 ))}
+
                 <Button
                   type="button"
                   variant="outline"
@@ -395,7 +571,6 @@ export function QuestionForm({
           </CardContent>
         </Card>
       </div>
-
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -404,7 +579,14 @@ export function QuestionForm({
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipe</Label>
-              <Select id="type" disabled={lockType} {...form.register("type")}>
+              <Select
+                id="type"
+                disabled={lockType}
+                value={v.type}
+                onChange={(e) =>
+                  changeQuestionType(e.target.value as FormValues["type"])
+                }
+              >
                 {Object.entries(QUESTION_TYPE_LABEL).map(([k, l]) => (
                   <option key={k} value={k}>
                     {l}
@@ -485,14 +667,34 @@ export function QuestionForm({
               }
             </CardHeader>
             <CardContent className="space-y-2">
-              {v.type === "MULTIPLE_CHOICE" ? (
+              {v.type === "MULTIPLE_CHOICE" &&
                 v.options.map((o, i) => (
                   <div key={i} className="rounded-md border p-2 text-sm">
                     {String.fromCharCode(65 + i)}. {o.text || "…"}{" "}
-                    {o.isCorrect && <Badge variant="success">benar</Badge>}
+                    {o.isCorrect && <Badge variant="success">Benar</Badge>}
                   </div>
-                ))
-              ) : (
+                ))}
+
+              {v.type === "MULTIPLE_SELECT" &&
+                v.options.map((o, i) => (
+                  <div key={i} className="rounded-md border p-2 text-sm">
+                    <span className="mr-2">{o.isCorrect ? "☑" : "☐"}</span>
+                    {String.fromCharCode(65 + i)}. {o.text || "…"}
+                    {o.isCorrect && <Badge variant="success">Benar</Badge>}
+                  </div>
+                ))}
+
+              {v.type === "TRUE_FALSE" &&
+                v.options.map((o, i) => (
+                  <div key={i} className="rounded-md border p-3 text-sm">
+                    <p>{i + 1}. {o.text || "…"}</p>
+                    <Badge variant="secondary">
+                      {o.isCorrect ? "Benar" : "Salah"}
+                    </Badge>
+                  </div>
+                ))}
+
+              {v.type === "SHORT_ANSWER" && (
                 <div className="text-muted-foreground rounded-md border p-2 text-sm">
                   [kotak jawaban isian]
                 </div>

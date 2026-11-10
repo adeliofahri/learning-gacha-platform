@@ -15,33 +15,50 @@ import { PATCH as userStatusRoute } from "@/app/api/admin/users/[id]/route";
 import { POST as pullRoute } from "@/app/api/gacha/[bannerId]/pull/route";
 import { getUserByToken } from "@/lib/auth/session";
 import { createAdmin, ctx, registerStudent, req, resetDb, tokenFrom } from "./helpers";
+import { randomBytes } from "node:crypto";
+import { hashToken } from "@/lib/auth/session";
+import { POST as verifyEmailRoute } from "@/app/api/auth/verify-email/route";
 
 beforeEach(resetDb);
 
 describe("register & login", () => {
-  it("siswa dapat register, mendapat sesi, wallet, dan password ter-hash", async () => {
+  it("siswa dapat register tanpa sesi, wallet dibuat, dan password ter-hash", async () => {
     const res = await register(
       req("/api/auth/register", {
-        body: { username: "budi_01", email: "Budi@Test.local", password: "Rahasia123" },
+        body: {
+          username: "budi_01",
+          email: "Budi@Test.local",
+          password: "Rahasia123",
+        },
       }),
     );
+
     expect(res.status).toBe(201);
-    const cookie = res.headers.get("set-cookie")!;
-    expect(cookie).toMatch(/HttpOnly/i);
-    expect(cookie).toMatch(/SameSite=lax/i);
+
+    // Registrasi belum membuat sesi.
+    expect(res.headers.get("set-cookie")).toBeNull();
+
     const user = await prisma.user.findUniqueOrThrow({
       where: { email: "budi@test.local" },
-      include: { wallet: true },
+      include: {
+        wallet: true,
+        emailVerificationTokens: true,
+      },
     });
+
     expect(user.role).toBe("STUDENT");
-    expect(user.isPublic).toBe(false); // privacy-by-default
+    expect(user.status).toBe("PENDING_VERIFICATION");
+    expect(user.emailVerifiedAt).toBeNull();
+    expect(user.isPublic).toBe(false);
+
     expect(user.passwordHash).not.toContain("Rahasia123");
     expect(user.passwordHash.startsWith("$argon2id$")).toBe(true);
+
     expect(user.wallet?.coins).toBe(0);
-    // Token di DB tersimpan sebagai hash, bukan plaintext.
-    const token = tokenFrom(res);
-    expect(await prisma.session.count({ where: { tokenHash: token } })).toBe(0);
-    expect((await getUserByToken(token))?.username).toBe("budi_01");
+
+    // Token verifikasi harus tersimpan dalam bentuk hash.
+    expect(user.emailVerificationTokens).toHaveLength(1);
+    expect(user.emailVerificationTokens[0]!.tokenHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("tidak bisa membuat admin lewat registrasi publik", async () => {
@@ -60,36 +77,111 @@ describe("register & login", () => {
     expect((await register(req("/api/auth/register", { body }))).status).toBe(409);
   });
 
-  it("login sukses, password salah ditolak, logout menghapus sesi", async () => {
+  it("siswa harus verifikasi email sebelum login; password salah ditolak dan logout menghapus sesi", async () => {
     await register(
       req("/api/auth/register", {
-        body: { username: "sari", email: "sari@test.local", password: "Rahasia123" },
+        body: {
+          username: "sari",
+          email: "sari@test.local",
+          password: "Rahasia123",
+        },
       }),
     );
+
+    // Akun yang belum diverifikasi tidak boleh login.
+    const pendingLogin = await login(
+      req("/api/auth/login", {
+        body: {
+          email: "sari@test.local",
+          password: "Rahasia123",
+        },
+      }),
+    );
+
+    expect(pendingLogin.status).toBe(403);
+
+    // Simulasikan token yang dikirim melalui email.
+    const verificationToken = randomBytes(32).toString("base64url");
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email: "sari@test.local" },
+    });
+
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(verificationToken),
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      },
+    });
+
+    // Verifikasi melalui endpoint sebenarnya.
+    const verification = await verifyEmailRoute(
+      req("/api/auth/verify-email", {
+        body: { token: verificationToken },
+      }),
+    );
+
+    expect(verification.status).toBe(200);
+
+    const verifiedUser = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+
+    expect(verifiedUser.status).toBe("ACTIVE");
+    expect(verifiedUser.emailVerifiedAt).not.toBeNull();
+
+    // Password salah tetap ditolak.
     const bad = await login(
-      req("/api/auth/login", { body: { email: "sari@test.local", password: "salah12345" } }),
+      req("/api/auth/login", {
+        body: {
+          email: "sari@test.local",
+          password: "salah12345",
+        },
+      }),
     );
+
     expect(bad.status).toBe(401);
+
+    // Login berhasil setelah verifikasi.
     const ok = await login(
-      req("/api/auth/login", { body: { email: "sari@test.local", password: "Rahasia123" } }),
+      req("/api/auth/login", {
+        body: {
+          email: "sari@test.local",
+          password: "Rahasia123",
+        },
+      }),
     );
+
     expect(ok.status).toBe(200);
+
     const token = tokenFrom(ok);
     expect(await getUserByToken(token)).not.toBeNull();
+
+    // Logout menghapus sesi.
     await logout(req("/api/auth/logout", { token, body: {} }));
+
     expect(await getUserByToken(token)).toBeNull();
   });
 
   it("rate limiting login per email", async () => {
     const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) {
+
+    for (let i = 0; i < 17; i++) {
       const res = await login(
-        req("/api/auth/login", { body: { email: "target@test.local", password: "x" } }),
+        req("/api/auth/login", {
+          body: {
+            email: "target@test.local",
+            password: "x",
+          },
+        }),
       );
+
       statuses.push(res.status);
     }
-    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
-    expect(statuses.at(-1)).toBe(429);
+
+    expect(statuses.slice(0, 15).every((s) => s === 401)).toBe(true);
+    expect(statuses.slice(15).every((s) => s === 429)).toBe(true);
   });
 
   it("akun SUSPENDED tidak bisa login dan sesinya dicabut", async () => {

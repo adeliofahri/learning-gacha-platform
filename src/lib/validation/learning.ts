@@ -30,6 +30,7 @@ const baseQuestion = {
 
 export const questionSchema = z
   .discriminatedUnion("type", [
+    // Pilihan ganda: 2-5 pilihan, tepat 1 benar
     z
       .object({
         ...baseQuestion,
@@ -42,23 +43,76 @@ export const questionSchema = z
             }),
           )
           .min(2, "Minimal 2 pilihan")
-          .max(8, "Maksimal 8 pilihan"),
+          .max(5, "Maksimal 5 pilihan"),
       })
       .strict(),
+
+    // Pilihan ganda kompleks: 4-5 pilihan, minimal 2 benar
+    z
+      .object({
+        ...baseQuestion,
+        type: z.literal("MULTIPLE_SELECT"),
+        options: z
+          .array(
+            z.object({
+              text: z.string().trim().min(1, "Teks pilihan wajib diisi").max(500),
+              isCorrect: z.boolean(),
+            }),
+          )
+          .min(4, "Minimal 4 pilihan")
+          .max(5, "Maksimal 5 pilihan"),
+      })
+      .strict(),
+
+    // Benar-salah: 3-4 pernyataan
+    z
+      .object({
+        ...baseQuestion,
+        type: z.literal("TRUE_FALSE"),
+        options: z
+          .array(
+            z.object({
+              text: z.string().trim().min(1, "Pernyataan wajib diisi").max(500),
+              isCorrect: z.boolean(),
+            }),
+          )
+          .min(3, "Minimal 3 pernyataan")
+          .max(4, "Maksimal 4 pernyataan"),
+      })
+      .strict(),
+
+    // Isian singkat: maksimal 10 jawaban acuan
     z
       .object({
         ...baseQuestion,
         type: z.literal("SHORT_ANSWER"),
-        acceptedAnswers: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+        acceptedAnswers: z
+          .array(z.string().trim().min(1).max(500))
+          .max(10)
+          .default([]),
       })
       .strict(),
   ])
   .superRefine((q, ctx) => {
-    if (q.type === "MULTIPLE_CHOICE" && q.options.filter((o) => o.isCorrect).length !== 1) {
+    if (
+      q.type === "MULTIPLE_CHOICE" &&
+      q.options.filter((o) => o.isCorrect).length !== 1
+    ) {
       ctx.addIssue({
         code: "custom",
         path: ["options"],
         message: "Harus ada tepat satu jawaban benar",
+      });
+    }
+
+    if (
+      q.type === "MULTIPLE_SELECT" &&
+      q.options.filter((o) => o.isCorrect).length < 2
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "Pilihan ganda kompleks harus memiliki minimal 2 jawaban benar",
       });
     }
   });
@@ -95,10 +149,74 @@ export const packageSchema = z
 export const attemptSchema = z
   .object({
     packageId: idSchema.nullable().optional(),
+
+    // Pilihan ganda
     optionId: idSchema.optional(),
-    answerText: z.string().trim().min(1, "Jawaban wajib diisi").max(2000).optional(),
+
+    // Pilihan ganda kompleks
+    optionIds: z.array(idSchema).min(2).max(5).optional(),
+
+    // Benar-salah
+    trueFalseAnswers: z
+      .array(
+        z
+          .object({
+            optionId: idSchema,
+            value: z.boolean(),
+          })
+          .strict(),
+      )
+      .min(3)
+      .max(4)
+      .optional(),
+
+    // Isian singkat
+    answerText: z
+      .string()
+      .trim()
+      .min(1, "Jawaban wajib diisi")
+      .max(2000)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const answerCount = [
+      value.optionId !== undefined,
+      value.optionIds !== undefined,
+      value.trueFalseAnswers !== undefined,
+      value.answerText !== undefined,
+    ].filter(Boolean).length;
+
+    if (answerCount !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Kirim tepat satu jenis jawaban",
+      });
+    }
+
+    if (
+      value.optionIds &&
+      new Set(value.optionIds).size !== value.optionIds.length
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["optionIds"],
+        message: "Pilihan jawaban tidak boleh duplikat",
+      });
+    }
+
+    if (value.trueFalseAnswers) {
+      const ids = value.trueFalseAnswers.map((answer) => answer.optionId);
+
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["trueFalseAnswers"],
+          message: "Pernyataan tidak boleh dijawab lebih dari sekali",
+        });
+      }
+    }
+  });
 
 export const reviewSchema = z
   .object({
