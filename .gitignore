@@ -14,3 +14,7 @@ test-results
 backups
 dist
 .DS_Store
+
+# Vercel local configuration
+.vercel
+.env*

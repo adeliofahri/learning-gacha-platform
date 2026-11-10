@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { Alert } from "@/components/ui/misc";
 import { CoinAmount, ShardAmount } from "@/components/shared/currency";
+import { MathContent } from "@/components/shared/math-content";
 import { apiFetch, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 import { emitWalletUpdate } from "@/lib/wallet-events";
 import {
@@ -287,20 +288,27 @@ export function QuestionCard({
           </span>
         </div>
 
-        <h2 className="text-lg font-bold">{question.title}</h2>
+          <h2 className="text-lg font-bold">
+            <MathContent content={question.title} />
+          </h2>
 
-        {question.imageUrl && (
-          <div className="my-3 overflow-hidden rounded-lg border">
-            <img
-              src={question.imageUrl}
-              alt={`Gambar untuk soal ${question.order}`}
-              className="h-auto max-h-[500px] w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        )}
+          {/* GAMBAR SOAL */}
+          {question.imageUrl && (
+            <div className="my-3 overflow-hidden rounded-lg border">
+              <img
+                src={question.imageUrl}
+                alt={`Gambar untuk soal ${question.order}`}
+                className="h-auto max-h-[500px] w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          )}
 
-        <p className="whitespace-pre-wrap">{question.content}</p>
+          {/* DESKRIPSI SOAL */}
+          <p className="whitespace-pre-wrap text-justify">
+            <MathContent content={question.content} />
+          </p>
+
       </CardHeader>
 
       <CardContent>
@@ -337,7 +345,9 @@ export function QuestionCard({
                     {String.fromCharCode(65 + index)}.
                   </span>
 
-                  <span>{option.text}</span>
+                  <span>
+                    <MathContent content={option.text} />
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -376,7 +386,9 @@ export function QuestionCard({
                       {String.fromCharCode(65 + index)}.
                     </span>
 
-                    <span>{option.text}</span>
+                    <span>
+                      <MathContent content={option.text} />
+                    </span>
 
                     {solved && isCorrect && (
                       <CheckCircle2 className="text-success ml-auto size-4" />
@@ -422,7 +434,7 @@ export function QuestionCard({
                     )}
                   >
                     <p className="font-medium">
-                      {index + 1}. {option.text}
+                      {index + 1}. <MathContent content={option.text} />
                     </p>
 
                     <div className="flex flex-wrap gap-4">
@@ -568,13 +580,16 @@ export function QuestionCard({
               {explanation && (
                 <>
                   <p className="font-semibold">Pembahasan</p>
-                  <p className="whitespace-pre-wrap">{explanation}</p>
+                  <p className="whitespace-pre-wrap">
+                    <MathContent content={explanation} />
+                  </p>
                 </>
               )}
 
               {accepted.length > 0 && (
                 <p className="text-muted-foreground mt-2">
-                  Jawaban acuan: {accepted.join(" · ")}
+                  Jawaban acuan:{" "}
+                  <MathContent content={accepted.join(" · ")} />
                 </p>
               )}
             </div>

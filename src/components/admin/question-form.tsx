@@ -1,18 +1,38 @@
+
 "use client";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Eye, Plus, Trash2 } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/misc";
+
 import { apiFetch, errorMessage } from "@/lib/api-client";
-import { CONTENT_STATUS_LABEL, DIFFICULTY_LABEL, QUESTION_TYPE_LABEL } from "@/lib/constants";
+import {
+  CONTENT_STATUS_LABEL,
+  DIFFICULTY_LABEL,
+  QUESTION_TYPE_LABEL,
+} from "@/lib/constants";
+
+import {
+  MathInput,
+  MathTextarea,
+} from "@/components/shared/math-editor";
+import { MathContent } from "@/components/shared/math-content";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+
 type FormValues = {
   id?: string;
   subjectId: string;
@@ -20,7 +40,11 @@ type FormValues = {
   title: string;
   content: string;
   imageUrl?: string | null;
-  type: "MULTIPLE_CHOICE" | "MULTIPLE_SELECT" | "TRUE_FALSE" | "SHORT_ANSWER";
+  type:
+    | "MULTIPLE_CHOICE"
+    | "MULTIPLE_SELECT"
+    | "TRUE_FALSE"
+    | "SHORT_ANSWER";
   difficulty: Difficulty;
   bounty: number;
   explanation: string;
@@ -35,17 +59,23 @@ export function QuestionForm({
   initial,
   lockType = false,
 }: {
-  subjects: { id: string; name: string; topics: { id: string; name: string }[] }[];
+  subjects: {
+    id: string;
+    name: string;
+    topics: { id: string; name: string }[];
+  }[];
   bounties: Record<Difficulty, number>;
   initial?: FormValues;
   lockType?: boolean;
 }) {
   const router = useRouter();
+
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [preview, setPreview] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
   const form = useForm<FormValues>({
     defaultValues: initial ?? {
       subjectId: subjects[0]?.id ?? "",
@@ -65,10 +95,21 @@ export function QuestionForm({
       acceptedAnswers: [],
     },
   });
-  const options = useFieldArray({ control: form.control, name: "options" });
-  const answers = useFieldArray({ control: form.control, name: "acceptedAnswers" });
+
+  const options = useFieldArray({
+    control: form.control,
+    name: "options",
+  });
+
+  const answers = useFieldArray({
+    control: form.control,
+    name: "acceptedAnswers",
+  });
+
   const v = form.watch();
-  const topics = subjects.find((s) => s.id === v.subjectId)?.topics ?? [];
+
+  const topics =
+    subjects.find((s) => s.id === v.subjectId)?.topics ?? [];
 
   const changeQuestionType = (type: FormValues["type"]) => {
     form.setValue("type", type);
@@ -99,7 +140,7 @@ export function QuestionForm({
   if (subjects.length === 0) {
     return (
       <Alert variant="warning">
-        Buat mata pelajaran terlebih dahulu di menu &quot;Mapel &amp; topik&quot;.
+        Buat mata pelajaran terlebih dahulu di menu "Mapel & topik".
       </Alert>
     );
   }
@@ -110,6 +151,7 @@ export function QuestionForm({
       onSubmit={form.handleSubmit(async (values) => {
         setError(null);
         setSaved(false);
+
         const base = {
           subjectId: values.subjectId,
           topicId: values.topicId || null,
@@ -121,6 +163,7 @@ export function QuestionForm({
           explanation: values.explanation || null,
           status: values.status,
         };
+
         const body =
           values.type === "SHORT_ANSWER"
             ? {
@@ -138,16 +181,21 @@ export function QuestionForm({
                   isCorrect: o.isCorrect,
                 })),
               };
+
         try {
           if (initial?.id) {
-            await apiFetch(`/api/admin/questions/${initial.id}`, { method: "PUT", body });
+            await apiFetch(`/api/admin/questions/${initial.id}`, {
+              method: "PUT",
+              body,
+            });
+
             setSaved(true);
             router.refresh();
           } else {
-            const { question } = await apiFetch<{ question: { id: string } }>(
-              "/api/admin/questions",
-              { body },
-            );
+            const { question } = await apiFetch<{
+              question: { id: string };
+            }>("/api/admin/questions", { body });
+
             router.push(`/admin/questions/${question.id}`);
             router.refresh();
           }
@@ -156,15 +204,18 @@ export function QuestionForm({
         }
       })}
     >
+      {/* KONTEN SOAL */}
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Konten soal</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="subjectId">Mata pelajaran</Label>
+
                 <Select
                   id="subjectId"
                   {...form.register("subjectId", {
@@ -179,10 +230,16 @@ export function QuestionForm({
                   ))}
                 </Select>
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="topicId">Topik (opsional)</Label>
-                <Select id="topicId" {...form.register("topicId")}>
+
+                <Select
+                  id="topicId"
+                  {...form.register("topicId")}
+                >
                   <option value="">— Tanpa topik —</option>
+
                   {topics.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -191,9 +248,12 @@ export function QuestionForm({
                 </Select>
               </div>
             </div>
+
+            {/* JUDUL */}
             <div className="space-y-1.5">
               <Label htmlFor="title">Judul</Label>
-              <Input
+
+              <MathInput
                 id="title"
                 required
                 minLength={3}
@@ -201,20 +261,29 @@ export function QuestionForm({
                 {...form.register("title", { required: true })}
               />
             </div>
+
+            {/* PERTANYAAN */}
             <div className="space-y-1.5">
               <Label htmlFor="content">Pertanyaan</Label>
-              <Textarea
+
+              <MathTextarea
                 id="content"
                 required
                 rows={5}
                 maxLength={5000}
                 {...form.register("content", { required: true })}
               />
+
               <p className="text-muted-foreground text-xs">
-                Teks biasa. HTML tidak dirender (aman dari XSS).
+                Teks biasa tetap ditampilkan sebagai teks. Gunakan $...$
+                untuk rumus inline dan $$...$$ untuk rumus di baris terpisah.
               </p>
+
+              {/* UPLOAD GAMBAR */}
               <div className="space-y-2">
-                <Label htmlFor="questionImage">Gambar soal (opsional)</Label>
+                <Label htmlFor="questionImage">
+                  Gambar soal (opsional)
+                </Label>
 
                 <input
                   id="questionImage"
@@ -229,13 +298,23 @@ export function QuestionForm({
                     setUploadError(null);
 
                     if (file.size > 2 * 1024 * 1024) {
-                      setUploadError("Ukuran gambar maksimal 2 MB.");
+                      setUploadError(
+                        "Ukuran gambar maksimal 2 MB.",
+                      );
                       e.target.value = "";
                       return;
                     }
 
-                    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-                      setUploadError("Format gambar harus PNG, JPEG, atau WebP.");
+                    if (
+                      ![
+                        "image/png",
+                        "image/jpeg",
+                        "image/webp",
+                      ].includes(file.type)
+                    ) {
+                      setUploadError(
+                        "Format gambar harus PNG, JPEG, atau WebP.",
+                      );
                       e.target.value = "";
                       return;
                     }
@@ -246,42 +325,53 @@ export function QuestionForm({
                     try {
                       setUploading(true);
 
-                      
-                    const response = await fetch("/api/admin/question-images", {
-                      method: "POST",
-                      body: formData,
-                      credentials: "same-origin",
-                    });
-
-                    const responseText = await response.text();
-
-                    let data: { url?: string; message?: string } = {};
-
-                    try {
-                      data = responseText ? JSON.parse(responseText) : {};
-                    } catch {
-                      throw new Error(
-                        `Server mengembalikan respons bukan JSON. HTTP ${response.status}. Respons: ${responseText.slice(0, 300) || "(kosong)"}`
+                      const response = await fetch(
+                        "/api/admin/question-images",
+                        {
+                          method: "POST",
+                          body: formData,
+                          credentials: "same-origin",
+                        },
                       );
-                    }
 
-                    if (!response.ok) {
-                      throw new Error(
-                        data.message || `Upload gagal. HTTP ${response.status}`
-                      );
-                    }
+                      const responseText = await response.text();
 
-                    if (!data.url) {
-                      throw new Error("Upload berhasil diproses, tetapi URL gambar tidak ditemukan.");
-                    }
+                      let data: {
+                        url?: string;
+                        message?: string;
+                      } = {};
 
-                    form.setValue("imageUrl", data.url, {
-                      shouldDirty: true,
-                    });
+                      try {
+                        data = responseText
+                          ? JSON.parse(responseText)
+                          : {};
+                      } catch {
+                        throw new Error(
+                          `Server mengembalikan respons bukan JSON. HTTP ${response.status}. Respons: ${responseText.slice(0, 300) || "(kosong)"}`,
+                        );
+                      }
 
+                      if (!response.ok) {
+                        throw new Error(
+                          data.message ||
+                            `Upload gagal. HTTP ${response.status}`,
+                        );
+                      }
+
+                      if (!data.url) {
+                        throw new Error(
+                          "Upload berhasil diproses, tetapi URL gambar tidak ditemukan.",
+                        );
+                      }
+
+                      form.setValue("imageUrl", data.url, {
+                        shouldDirty: true,
+                      });
                     } catch (err) {
                       setUploadError(
-                        err instanceof Error ? err.message : "Gagal mengunggah gambar."
+                        err instanceof Error
+                          ? err.message
+                          : "Gagal mengunggah gambar.",
                       );
                     } finally {
                       setUploading(false);
@@ -291,11 +381,13 @@ export function QuestionForm({
                 />
 
                 <p className="text-muted-foreground text-xs">
-                  Format PNG, JPEG, atau WebP. Maksimal 2 MB.
+                  Format PNG, JPEG atau WebP. Maksimal 2 MB.
                 </p>
 
                 {uploading && (
-                  <p className="text-sm text-muted-foreground">Mengunggah gambar...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Mengunggah gambar...
+                  </p>
                 )}
 
                 {uploadError && (
@@ -315,7 +407,9 @@ export function QuestionForm({
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        form.setValue("imageUrl", null, { shouldDirty: true });
+                        form.setValue("imageUrl", null, {
+                          shouldDirty: true,
+                        });
                         setUploadError(null);
                       }}
                     >
@@ -325,14 +419,20 @@ export function QuestionForm({
                 )}
               </div>
             </div>
+
+            {/* PEMBAHASAN */}
             <div className="space-y-1.5">
-              <Label htmlFor="explanation">Pembahasan (opsional)</Label>
-              <Textarea
+              <Label htmlFor="explanation">
+                Pembahasan (opsional)
+              </Label>
+
+              <MathTextarea
                 id="explanation"
                 rows={3}
                 maxLength={5000}
                 {...form.register("explanation")}
               />
+
               <p className="text-muted-foreground text-xs">
                 Ditampilkan ke siswa setelah soal solved.
               </p>
@@ -340,6 +440,7 @@ export function QuestionForm({
           </CardContent>
         </Card>
 
+        {/* PILIHAN JAWABAN */}
         <Card>
           <CardHeader>
             <CardTitle>
@@ -354,14 +455,19 @@ export function QuestionForm({
           </CardHeader>
 
           <CardContent className="space-y-3">
+            {/* MULTIPLE CHOICE */}
             {v.type === "MULTIPLE_CHOICE" && (
               <>
                 <p className="text-muted-foreground text-xs">
-                  Tandai tepat satu jawaban benar. Minimal 2 dan maksimal 5 pilihan.
+                  Tandai tepat satu jawaban benar. Minimal 2 dan maksimal
+                  5 pilihan.
                 </p>
 
                 {options.fields.map((f, i) => (
-                  <div key={f.id} className="flex items-center gap-2">
+                  <div
+                    key={f.id}
+                    className="flex items-center gap-2"
+                  >
                     <input
                       type="radio"
                       name="correct-option"
@@ -370,16 +476,24 @@ export function QuestionForm({
                       checked={v.options[i]?.isCorrect ?? false}
                       onChange={() =>
                         v.options.forEach((_, j) =>
-                          form.setValue(`options.${j}.isCorrect`, j === i),
+                          form.setValue(
+                            `options.${j}.isCorrect`,
+                            j === i,
+                          ),
                         )
                       }
                     />
 
-                    <Input
-                      placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
-                      aria-label={`Teks pilihan ${i + 1}`}
-                      {...form.register(`options.${i}.text`, { required: true })}
-                    />
+                    <div className="min-w-0 flex-1">
+                      <MathInput
+                        placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
+                        aria-label={`Teks pilihan ${i + 1}`}
+                        {...form.register(
+                          `options.${i}.text`,
+                          { required: true },
+                        )}
+                      />
+                    </div>
 
                     <Button
                       type="button"
@@ -399,22 +513,31 @@ export function QuestionForm({
                   variant="outline"
                   size="sm"
                   disabled={options.fields.length >= 5}
-                  onClick={() => options.append({ text: "", isCorrect: false })}
+                  onClick={() =>
+                    options.append({
+                      text: "",
+                      isCorrect: false,
+                    })
+                  }
                 >
                   <Plus /> Tambah pilihan
                 </Button>
               </>
             )}
 
+            {/* MULTIPLE SELECT */}
             {v.type === "MULTIPLE_SELECT" && (
               <>
                 <p className="text-muted-foreground text-xs">
-                  Centang semua jawaban yang benar. Minimal 4, maksimal 5 pilihan,
-                  dan setidaknya 2 jawaban benar.
+                  Centang semua jawaban yang benar. Minimal 4, maksimal 5
+                  pilihan, dan setidaknya 2 jawaban benar.
                 </p>
 
                 {options.fields.map((f, i) => (
-                  <div key={f.id} className="flex items-center gap-2">
+                  <div
+                    key={f.id}
+                    className="flex items-center gap-2"
+                  >
                     <input
                       type="checkbox"
                       aria-label={`Tandai pilihan ${i + 1} sebagai benar`}
@@ -428,11 +551,16 @@ export function QuestionForm({
                       }
                     />
 
-                    <Input
-                      placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
-                      aria-label={`Teks pilihan ${i + 1}`}
-                      {...form.register(`options.${i}.text`, { required: true })}
-                    />
+                    <div className="min-w-0 flex-1">
+                      <MathInput
+                        placeholder={`Pilihan ${String.fromCharCode(65 + i)}`}
+                        aria-label={`Teks pilihan ${i + 1}`}
+                        {...form.register(
+                          `options.${i}.text`,
+                          { required: true },
+                        )}
+                      />
+                    </div>
 
                     <Button
                       type="button"
@@ -452,22 +580,31 @@ export function QuestionForm({
                   variant="outline"
                   size="sm"
                   disabled={options.fields.length >= 5}
-                  onClick={() => options.append({ text: "", isCorrect: false })}
+                  onClick={() =>
+                    options.append({
+                      text: "",
+                      isCorrect: false,
+                    })
+                  }
                 >
                   <Plus /> Tambah pilihan
                 </Button>
               </>
             )}
 
+            {/* TRUE FALSE */}
             {v.type === "TRUE_FALSE" && (
               <>
                 <p className="text-muted-foreground text-xs">
-                  Masukkan 3–4 pernyataan. Tentukan apakah setiap pernyataan
-                  merupakan pernyataan benar atau salah.
+                  Masukkan 3–4 pernyataan. Tentukan apakah setiap
+                  pernyataan merupakan pernyataan benar atau salah.
                 </p>
 
                 {options.fields.map((f, i) => (
-                  <div key={f.id} className="space-y-2 rounded-lg border p-3">
+                  <div
+                    key={f.id}
+                    className="space-y-2 rounded-lg border p-3"
+                  >
                     <div className="flex items-center justify-between">
                       <Label>Pernyataan {i + 1}</Label>
 
@@ -483,10 +620,13 @@ export function QuestionForm({
                       </Button>
                     </div>
 
-                    <Textarea
+                    <MathTextarea
                       placeholder={`Tulis pernyataan ${i + 1}`}
                       rows={2}
-                      {...form.register(`options.${i}.text`, { required: true })}
+                      {...form.register(
+                        `options.${i}.text`,
+                        { required: true },
+                      )}
                     />
 
                     <div className="flex gap-4">
@@ -496,7 +636,10 @@ export function QuestionForm({
                           name={`truth-${f.id}`}
                           checked={v.options[i]?.isCorrect === true}
                           onChange={() =>
-                            form.setValue(`options.${i}.isCorrect`, true)
+                            form.setValue(
+                              `options.${i}.isCorrect`,
+                              true,
+                            )
                           }
                         />
                         Benar
@@ -508,7 +651,10 @@ export function QuestionForm({
                           name={`truth-${f.id}`}
                           checked={v.options[i]?.isCorrect === false}
                           onChange={() =>
-                            form.setValue(`options.${i}.isCorrect`, false)
+                            form.setValue(
+                              `options.${i}.isCorrect`,
+                              false,
+                            )
                           }
                         />
                         Salah
@@ -522,27 +668,40 @@ export function QuestionForm({
                   variant="outline"
                   size="sm"
                   disabled={options.fields.length >= 4}
-                  onClick={() => options.append({ text: "", isCorrect: false })}
+                  onClick={() =>
+                    options.append({
+                      text: "",
+                      isCorrect: false,
+                    })
+                  }
                 >
                   <Plus /> Tambah pernyataan
                 </Button>
               </>
             )}
 
+            {/* SHORT ANSWER */}
             {v.type === "SHORT_ANSWER" && (
               <>
                 <p className="text-muted-foreground text-xs">
-                  Jawaban isian diperiksa admin. Variasi jawaban acuan hanya
-                  terlihat oleh admin sampai soal diputuskan.
+                  Jawaban isian diperiksa admin. Variasi jawaban acuan
+                  hanya terlihat oleh admin sampai soal diputuskan.
                 </p>
 
                 {answers.fields.map((f, i) => (
-                  <div key={f.id} className="flex items-center gap-2">
-                    <Input
-                      placeholder={`Jawaban acuan ${i + 1}`}
-                      aria-label={`Jawaban acuan ${i + 1}`}
-                      {...form.register(`acceptedAnswers.${i}.text`)}
-                    />
+                  <div
+                    key={f.id}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <MathInput
+                        placeholder={`Jawaban acuan ${i + 1}`}
+                        aria-label={`Jawaban acuan ${i + 1}`}
+                        {...form.register(
+                          `acceptedAnswers.${i}.text`,
+                        )}
+                      />
+                    </div>
 
                     <Button
                       type="button"
@@ -571,20 +730,26 @@ export function QuestionForm({
           </CardContent>
         </Card>
       </div>
+
+      {/* PENGATURAN DAN PREVIEW */}
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Pengaturan</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipe</Label>
+
               <Select
                 id="type"
                 disabled={lockType}
                 value={v.type}
                 onChange={(e) =>
-                  changeQuestionType(e.target.value as FormValues["type"])
+                  changeQuestionType(
+                    e.target.value as FormValues["type"],
+                  )
                 }
               >
                 {Object.entries(QUESTION_TYPE_LABEL).map(([k, l]) => (
@@ -594,12 +759,20 @@ export function QuestionForm({
                 ))}
               </Select>
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="difficulty">Tingkat kesulitan</Label>
+              <Label htmlFor="difficulty">
+                Tingkat kesulitan
+              </Label>
+
               <Select
                 id="difficulty"
                 {...form.register("difficulty", {
-                  onChange: (e) => form.setValue("bounty", bounties[e.target.value as Difficulty]),
+                  onChange: (e) =>
+                    form.setValue(
+                      "bounty",
+                      bounties[e.target.value as Difficulty],
+                    ),
                 })}
               >
                 {Object.entries(DIFFICULTY_LABEL).map(([k, l]) => (
@@ -609,19 +782,28 @@ export function QuestionForm({
                 ))}
               </Select>
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="bounty">Bounty (koin)</Label>
+
               <Input
                 id="bounty"
                 type="number"
                 min={0}
                 max={10000}
-                {...form.register("bounty", { valueAsNumber: true })}
+                {...form.register("bounty", {
+                  valueAsNumber: true,
+                })}
               />
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="status">Status</Label>
-              <Select id="status" {...form.register("status")}>
+
+              <Select
+                id="status"
+                {...form.register("status")}
+              >
                 {Object.entries(CONTENT_STATUS_LABEL).map(([k, l]) => (
                   <option key={k} value={k}>
                     {l}
@@ -629,12 +811,26 @@ export function QuestionForm({
                 ))}
               </Select>
             </div>
+
             {error && <Alert variant="error">{error}</Alert>}
-            {saved && <Alert variant="success">Soal tersimpan.</Alert>}
+
+            {saved && (
+              <Alert variant="success">
+                Soal tersimpan.
+              </Alert>
+            )}
+
             <div className="flex gap-2">
-              <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Menyimpan…" : "Simpan"}
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting
+                  ? "Menyimpan…"
+                  : "Simpan"}
               </Button>
+
               <Button
                 type="button"
                 variant="outline"
@@ -646,57 +842,130 @@ export function QuestionForm({
             </div>
           </CardContent>
         </Card>
+
+        {/* PREVIEW SOAL */}
         {preview && (
           <Card aria-label="Preview soal">
             <CardHeader>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary">{QUESTION_TYPE_LABEL[v.type]}</Badge>
-                <Badge variant="secondary">{DIFFICULTY_LABEL[v.difficulty]}</Badge>
-                <Badge>{v.bounty} koin</Badge>
-              </div>
-              <CardTitle>{v.title || "(judul)"}</CardTitle>
-              <p className="text-sm whitespace-pre-wrap">{v.content || "(pertanyaan)"}</p>
-              {v.imageUrl && 
-              (
+              <CardTitle>
+                <MathContent content={v.title || "(judul soal)"} />
+              </CardTitle>
+
+              {/* PREVIEW GAMBAR SOAL */}
+              {v.imageUrl && (
                 <img
                   src={v.imageUrl}
                   alt="Preview gambar soal"
                   className="max-h-64 w-full rounded-lg border object-contain"
                 />
-              )
-              }
+              )}
+
+              {/* PREVIEW DESKRIPSI SOAL */}
+              <div className="text-sm text-justify">
+                <MathContent content={v.content || "(pertanyaan)"} />
+              </div>
             </CardHeader>
+
             <CardContent className="space-y-2">
+              {/* PREVIEW MULTIPLE CHOICE */}
               {v.type === "MULTIPLE_CHOICE" &&
                 v.options.map((o, i) => (
-                  <div key={i} className="rounded-md border p-2 text-sm">
-                    {String.fromCharCode(65 + i)}. {o.text || "…"}{" "}
-                    {o.isCorrect && <Badge variant="success">Benar</Badge>}
+                  <div
+                    key={i}
+                    className="rounded-md border p-2 text-sm"
+                  >
+                    <span>
+                      {String.fromCharCode(65 + i)}.{" "}
+                    </span>
+
+                    <MathContent content={o.text || "…"} />
+
+                    {o.isCorrect && (
+                      <Badge variant="success">
+                        Benar
+                      </Badge>
+                    )}
                   </div>
                 ))}
 
+              {/* PREVIEW MULTIPLE SELECT */}
               {v.type === "MULTIPLE_SELECT" &&
                 v.options.map((o, i) => (
-                  <div key={i} className="rounded-md border p-2 text-sm">
-                    <span className="mr-2">{o.isCorrect ? "☑" : "☐"}</span>
-                    {String.fromCharCode(65 + i)}. {o.text || "…"}
-                    {o.isCorrect && <Badge variant="success">Benar</Badge>}
+                  <div
+                    key={i}
+                    className="rounded-md border p-2 text-sm"
+                  >
+                    <span className="mr-2">
+                      {o.isCorrect ? "☑" : "☐"}
+                    </span>
+
+                    <span>
+                      {String.fromCharCode(65 + i)}.{" "}
+                    </span>
+
+                    <MathContent content={o.text || "…"} />
+
+                    {o.isCorrect && (
+                      <Badge variant="success">
+                        Benar
+                      </Badge>
+                    )}
                   </div>
                 ))}
 
+              {/* PREVIEW TRUE FALSE */}
               {v.type === "TRUE_FALSE" &&
                 v.options.map((o, i) => (
-                  <div key={i} className="rounded-md border p-3 text-sm">
-                    <p>{i + 1}. {o.text || "…"}</p>
+                  <div
+                    key={i}
+                    className="rounded-md border p-3 text-sm"
+                  >
+                    <p>
+                      <span>{i + 1}. </span>
+                      <MathContent content={o.text || "…"} />
+                    </p>
+
                     <Badge variant="secondary">
                       {o.isCorrect ? "Benar" : "Salah"}
                     </Badge>
                   </div>
                 ))}
 
+              {/* PREVIEW SHORT ANSWER */}
               {v.type === "SHORT_ANSWER" && (
-                <div className="text-muted-foreground rounded-md border p-2 text-sm">
-                  [kotak jawaban isian]
+                <div className="space-y-2">
+                  <div className="text-muted-foreground rounded-md border p-2 text-sm">
+                    [kotak jawaban isian]
+                  </div>
+
+                  {v.acceptedAnswers.some((a) => a.text.trim()) && (
+                    <div className="rounded-md border p-3 text-sm">
+                      <p className="mb-2 font-semibold">
+                        Variasi jawaban acuan (admin)
+                      </p>
+
+                      {v.acceptedAnswers
+                        .filter((a) => a.text.trim())
+                        .map((a, i) => (
+                          <div key={i}>
+                            <MathContent content={a.text} />
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* PREVIEW PEMBAHASAN ADMIN */}
+              {v.explanation.trim() && (
+                <div className="mt-4 border-t pt-3">
+                  <p className="mb-2 text-sm font-semibold">
+                    Pembahasan (preview admin)
+                  </p>
+
+                  <div className="text-sm">
+                    <MathContent content={v.explanation} />
+                  </div>
                 </div>
               )}
             </CardContent>
