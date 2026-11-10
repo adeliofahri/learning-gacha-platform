@@ -1,4 +1,4 @@
-
+/* eslint-disable react/no-danger -- KaTeX-generated HTML is rendered with trust:false. */
 import katex from "katex";
 
 type MathContentProps = {

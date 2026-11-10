@@ -140,7 +140,7 @@ export function QuestionForm({
   if (subjects.length === 0) {
     return (
       <Alert variant="warning">
-        Buat mata pelajaran terlebih dahulu di menu "Mapel & topik".
+        Buat mata pelajaran terlebih dahulu di menu &quot;Mapel &amp; topik&quot;.
       </Alert>
     );
   }
