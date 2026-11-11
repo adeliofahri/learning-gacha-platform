@@ -68,3 +68,64 @@ export async function sendVerificationEmail(params: {
     throw new Error("Gagal mengirim email verifikasi");
   }
 }
+
+
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  token: string;
+}): Promise<void> {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  const config = env();
+
+  if (!config.RESEND_API_KEY || !config.EMAIL_FROM) {
+    throw new Error("RESEND_API_KEY dan EMAIL_FROM wajib dikonfigurasi");
+  }
+
+  const resend = new Resend(config.RESEND_API_KEY);
+
+  const resetUrl = new URL("/reset-password", config.APP_URL);
+  resetUrl.searchParams.set("token", params.token);
+
+  const safeUrl = escapeHtml(resetUrl.toString());
+
+  const { error } = await resend.emails.send({
+    from: config.EMAIL_FROM,
+    to: params.to,
+    subject: "Reset Password - Learning Gacha",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto;">
+        <h2>Reset Password Learning Gacha</h2>
+        <p>Kami menerima permintaan untuk mengatur ulang password akun kamu.</p>
+        <p>Tekan tombol berikut untuk membuat password baru:</p>
+        <p style="margin: 28px 0;">
+          <a
+            href="${safeUrl}"
+            style="background: #2563eb; color: white; padding: 12px 20px;
+                   border-radius: 8px; text-decoration: none;"
+          >
+            Reset Password
+          </a>
+        </p>
+        <p>Tautan ini berlaku selama 30 menit dan hanya dapat digunakan satu kali.</p>
+        <p>Jika kamu tidak meminta reset password, abaikan email ini.
+        Password akun kamu tidak akan berubah.</p>
+      </div>
+    `,
+    text: [
+      "Reset Password Learning Gacha",
+      "Kami menerima permintaan untuk mengatur ulang password akun kamu.",
+      "Buka tautan berikut untuk membuat password baru:",
+      resetUrl.toString(),
+      "Tautan berlaku selama 30 menit dan hanya dapat digunakan satu kali.",
+      "Jika kamu tidak meminta reset password, abaikan email ini.",
+    ].join("\n\n"),
+  });
+
+  if (error) {
+    console.error("[email] Failed to send password reset email:", error);
+    throw new Error("Gagal mengirim email reset password");
+  }
+}

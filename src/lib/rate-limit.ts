@@ -12,6 +12,14 @@ export const RATE_LIMITS = {
   claim: { limit: 15, windowSeconds: 60 },
   resendVerificationIp: { limit: 8, windowSeconds: 60 * 60 },
   resendVerificationEmail: { limit: 5, windowSeconds: 60 * 60 },
+  forgotPasswordIp: {
+    limit: process.env.NODE_ENV === "development" ? 100 : 5,
+    windowSeconds: 60 * 60,
+  },
+  forgotPasswordEmail: {
+    limit: process.env.NODE_ENV === "development" ? 100 : 3,
+    windowSeconds: 60 * 60,
+  },
 } satisfies Record<string, RateLimitRule>;
 
 /**

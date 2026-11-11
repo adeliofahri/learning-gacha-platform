@@ -12,7 +12,17 @@ export default function LoginPage() {
         <CardDescription>Lanjutkan belajar dan kumpulkan karakter.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Lupa password?
+          </Link>
+        </div>
+
         <LoginForm />
+
         <p className="text-muted-foreground text-center text-sm">
           Belum punya akun?{" "}
           <Link href="/register" className="text-primary font-semibold hover:underline">

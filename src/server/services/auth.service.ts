@@ -4,7 +4,10 @@ import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/auth/pass
 import { createSession, hashToken } from "@/lib/auth/session";
 import type { LoginInput, RegisterInput } from "@/lib/validation/auth";
 import { randomBytes } from "node:crypto";
-import { sendVerificationEmail } from "@/server/services/email.service";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "@/server/services/email.service";
 
 /** Registrasi publik SELALU membuat STUDENT. */
 export async function registerStudent(input: RegisterInput) {
@@ -291,5 +294,142 @@ export async function changePassword(params: {
         },
       });
     }
+  });
+}
+
+
+/**
+ * Meminta reset password melalui email.
+ * Respons tidak membedakan email terdaftar dan tidak terdaftar.
+ */
+export async function requestPasswordReset(email: string) {
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      email: true,
+    },
+  });
+
+  if (!user) {
+    return;
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = hashToken(token);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 60 * 1000);
+
+  await transaction(async (tx) => {
+    // Membatalkan token reset sebelumnya yang belum digunakan.
+    await tx.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
+      data: { usedAt: now },
+    });
+
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+  });
+
+  try {
+    await sendPasswordResetEmail({
+      to: user.email,
+      token,
+    });
+  } catch (error) {
+    // Token tidak boleh tetap aktif jika email gagal dikirim.
+    await prisma.passwordResetToken.updateMany({
+      where: {
+        tokenHash,
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    console.error("[auth] Password reset email could not be sent:", error);
+  }
+}
+
+/**
+ * Mengatur ulang password menggunakan token sekali pakai.
+ * Seluruh sesi pengguna dicabut setelah reset berhasil.
+ */
+export async function resetPassword(params: {
+  token: string;
+  newPassword: string;
+}) {
+  const tokenHash = hashToken(params.token);
+  const now = new Date();
+
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: {
+      id: true,
+      userId: true,
+      expiresAt: true,
+      usedAt: true,
+    },
+  });
+
+  if (
+    !resetToken ||
+    resetToken.usedAt ||
+    resetToken.expiresAt <= now
+  ) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Tautan reset password tidak valid atau sudah kedaluwarsa.",
+    );
+  }
+
+  const passwordHash = await hashPassword(params.newPassword);
+
+  await transaction(async (tx) => {
+    // Atomic check untuk mencegah token digunakan lebih dari sekali.
+    const consumed = await tx.passwordResetToken.updateMany({
+      where: {
+        id: resetToken.id,
+        usedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { usedAt: now },
+    });
+
+    if (consumed.count !== 1) {
+      throw new AppError(
+        "BAD_REQUEST",
+        "Tautan reset password tidak valid atau sudah digunakan.",
+      );
+    }
+
+    await tx.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash },
+    });
+
+    // Cabut seluruh sesi, termasuk sesi yang mungkin masih aktif.
+    await tx.session.deleteMany({
+      where: { userId: resetToken.userId },
+    });
+
+    // Batalkan semua token reset lain yang masih aktif.
+    await tx.passwordResetToken.updateMany({
+      where: {
+        userId: resetToken.userId,
+        usedAt: null,
+      },
+      data: { usedAt: now },
+    });
   });
 }

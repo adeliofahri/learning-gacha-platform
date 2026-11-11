@@ -54,3 +54,20 @@ export const resendVerificationSchema = z
     email: z.string().trim().toLowerCase().email("Format email tidak valid").max(200),
   })
   .strict();
+
+
+export const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("Format email tidak valid").max(200),
+  })
+  .strict();
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(32).max(200),
+    newPassword: registerSchema.shape.password,
+  })
+  .strict();
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

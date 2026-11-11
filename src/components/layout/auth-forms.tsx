@@ -13,9 +13,12 @@ import { apiFetch, errorMessage } from "@/lib/api-client";
 import {
   loginSchema,
   registerSchema,
+  forgotPasswordSchema,
   type LoginInput,
   type RegisterInput,
 } from "@/lib/validation/auth";
+import Link from "next/link";
+import { z } from "zod";
 
 export function LoginForm() {
   const router = useRouter();
@@ -285,5 +288,216 @@ export function VerifyEmailForm({ token }: { token: string }) {
         {loading ? "Memverifikasi..." : "Verifikasi email"}
       </Button>
     </div>
+  );
+}
+
+
+const resetPasswordFormSchema = z
+  .object({
+    newPassword: registerSchema.shape.password,
+    confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    message: "Konfirmasi password tidak cocok.",
+    path: ["confirmPassword"],
+  });
+
+type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>;
+
+export function ResetPasswordForm({ token }: { token: string }) {
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<ResetPasswordFormInput>({
+    resolver: zodResolver(resetPasswordFormSchema),
+    defaultValues: {
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  const { errors, isSubmitting } = form.formState;
+
+  if (!token) {
+    return (
+      <Alert variant="error">
+        Tautan reset password tidak memiliki token yang valid.
+        Silakan minta tautan reset password baru.
+      </Alert>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border p-4 space-y-2">
+          <h2 className="font-semibold">Password berhasil diubah</h2>
+          <p className="text-sm text-muted-foreground">
+            Password akun kamu telah diperbarui. Silakan login menggunakan
+            password baru.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() => {
+            window.location.href = "/login";
+          }}
+        >
+          Masuk ke akun
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      noValidate
+      className="space-y-4"
+      onSubmit={form.handleSubmit(async (values) => {
+        setError(null);
+
+        try {
+          await apiFetch("/api/auth/reset-password", {
+            body: {
+              token,
+              newPassword: values.newPassword,
+            },
+          });
+
+          setSuccess(true);
+        } catch (e) {
+          setError(errorMessage(e));
+        }
+      })}
+    >
+      {error && <Alert variant="error">{error}</Alert>}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="new-password">Password baru</Label>
+        <Input
+          id="new-password"
+          type="password"
+          autoComplete="new-password"
+          aria-invalid={!!errors.newPassword}
+          aria-describedby="new-password-error new-password-hint"
+          {...form.register("newPassword")}
+        />
+
+        <p id="new-password-hint" className="text-xs text-muted-foreground">
+          Minimal 8 karakter, mengandung huruf dan angka.
+        </p>
+
+        <FieldError
+          id="new-password-error"
+          message={errors.newPassword?.message}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="confirm-password">Konfirmasi password baru</Label>
+        <Input
+          id="confirm-password"
+          type="password"
+          autoComplete="new-password"
+          aria-invalid={!!errors.confirmPassword}
+          aria-describedby="confirm-password-error"
+          {...form.register("confirmPassword")}
+        />
+        <FieldError
+          id="confirm-password-error"
+          message={errors.confirmPassword?.message}
+        />
+      </div>
+
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? "Memproses..." : "Ubah password"}
+      </Button>
+    </form>
+  );
+}
+
+
+export function ForgotPasswordForm() {
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<{ email: string }>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
+  });
+
+  const { errors, isSubmitting } = form.formState;
+
+  if (success) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border p-4 space-y-2">
+          <h2 className="font-semibold">Periksa email kamu</h2>
+          <p className="text-sm text-muted-foreground">
+            Jika alamat email terdaftar, instruksi untuk mengatur ulang
+            password akan dikirim. Periksa inbox atau folder spam.
+          </p>
+        </div>
+
+        <Link
+          href="/login"
+          className="block text-center text-sm text-primary font-semibold hover:underline"
+        >
+          Kembali ke halaman login
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      noValidate
+      className="space-y-4"
+      onSubmit={form.handleSubmit(async (values) => {
+        setError(null);
+
+        try {
+          await apiFetch("/api/auth/forgot-password", {
+            body: values,
+          });
+
+          setSuccess(true);
+        } catch (e) {
+          setError(errorMessage(e));
+        }
+      })}
+    >
+      {error && <Alert variant="error">{error}</Alert>}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="forgot-email">Email</Label>
+        <Input
+          id="forgot-email"
+          type="email"
+          autoComplete="email"
+          placeholder="nama@email.com"
+          aria-invalid={!!errors.email}
+          aria-describedby="forgot-email-error"
+          {...form.register("email")}
+        />
+        <FieldError
+          id="forgot-email-error"
+          message={errors.email?.message}
+        />
+      </div>
+
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? "Mengirim..." : "Kirim tautan reset password"}
+      </Button>
+
+      <Link
+        href="/login"
+        className="block text-center text-sm text-primary hover:underline"
+      >
+        Kembali ke login
+      </Link>
+    </form>
   );
 }
