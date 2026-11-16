@@ -8,6 +8,7 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
+
 export function DialogContent({
   className,
   children,
@@ -16,14 +17,16 @@ export function DialogContent({
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+
       <DialogPrimitive.Content
         className={cn(
-          "bg-card fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border p-6 shadow-xl",
-          className,
+          "bg-card fixed top-1/2 left-1/2 z-50 max-h-[min(90dvh,900px)] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-lg border p-4 shadow-xl sm:p-6",
+          className
         )}
         {...props}
       >
         {children}
+
         <DialogPrimitive.Close
           className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100"
           aria-label="Tutup"

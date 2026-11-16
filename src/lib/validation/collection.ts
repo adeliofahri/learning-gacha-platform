@@ -116,8 +116,8 @@ export const pullSchema = z.object({ type: z.enum(["SINGLE", "TEN_PULL", "STEP_U
 
 export const profileSchema = z
   .object({
-    isPublic: z.boolean().optional(),
     avatarCharacterId: idSchema.nullable().optional(),
+    bio: z.string().trim().max(300, "BIO maksimal 300 karakter").nullable().optional(),
   })
   .strict();
 

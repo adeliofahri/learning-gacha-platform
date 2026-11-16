@@ -72,7 +72,6 @@ export async function getStudentDetail(id: string) {
       username: true,
       email: true,
       status: true,
-      isPublic: true,
       createdAt: true,
       wallet: true,
       inventory: { include: { character: true }, orderBy: { character: { rarity: "desc" } } },

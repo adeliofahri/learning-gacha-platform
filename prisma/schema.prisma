@@ -51,6 +51,11 @@ enum AttemptStatus {
   REJECTED
 }
 
+enum ContributionType {
+  QUESTION
+  CHARACTER
+}
+
 enum Currency {
   COIN
   SHARD
@@ -65,6 +70,7 @@ enum TransactionType {
   SHARD_SPEND
   CHARACTER_DELETE_REFUND
   DAILY_LOGIN_REWARD
+  CONTRIBUTION_REWARD
 }
 
 enum CharacterCategory {
@@ -106,7 +112,11 @@ model User {
   passwordHash      String
   role              Role       @default(STUDENT)
   status            UserStatus @default(ACTIVE)
-  isPublic          Boolean    @default(false)
+  isPublic          Boolean    @default(true)
+
+  bio               String?    @db.VarChar(300)
+
+  contributionPoints Int       @default(0)
   avatarCharacterId String?
   avatarCharacter   Character? @relation("UserAvatar", fields: [avatarCharacterId], references: [id], onDelete: SetNull)
   createdAt         DateTime   @default(now())
@@ -127,6 +137,10 @@ model User {
   auditLogs        AuditLog[]
   uploads          UploadedImage[]
   questionsCreated Question[]
+  charactersCreated Character[] @relation("CharacterCreator")
+  contributionSubmissions ContributionSubmission[]
+  contributionQuotas ContributionQuota[]
+  contributionRewards ContributionReward[]
   eventsCreated    Event[]
   adjustmentsMade  WalletTransaction[] @relation("TransactionActor")
 
@@ -250,6 +264,7 @@ model Question {
   cooldowns QuestionCooldown[]
 
   @@index([status, subjectId])
+  @@index([createdById, status, createdAt])
 }
 
 model QuestionOption {
@@ -312,8 +327,8 @@ model Attempt {
   id               String          @id @default(cuid())
   userId           String
   user             User            @relation("AttemptUser", fields: [userId], references: [id], onDelete: Cascade)
-  questionId       String
-  question         Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionId       String?
+  question         Question?       @relation(fields: [questionId], references: [id], onDelete: SetNull)
   packageId        String?
   package          Package?        @relation(fields: [packageId], references: [id], onDelete: SetNull)
   questionVersion  Int
@@ -341,8 +356,8 @@ model QuestionSolve {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  questionId    String
-  question      Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionId    String?
+  question      Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
   attemptId     String   @unique
   attempt       Attempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
   bountyAwarded Int
@@ -366,6 +381,8 @@ model Character {
   imageUrl    String
   category    CharacterCategory
   status      CharacterStatus   @default(ACTIVE)
+  createdById String?
+  createdBy   User?             @relation("CharacterCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   limitedBorderType     RarityBorderType @default(PRESET)
   limitedBorderConfig   Json?
@@ -378,6 +395,8 @@ model Character {
   bannerItems  BannerCharacter[]
   gachaResults GachaResult[]
   avatarUsers  User[]            @relation("UserAvatar")
+
+  @@index([createdById, createdAt])
 }
 
 model InventoryItem {
@@ -602,4 +621,48 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+
+enum ContributionSubmissionStatus {
+  PENDING
+}
+
+model ContributionSubmission {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      ContributionType
+  content   Json
+  status    ContributionSubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId, type, createdAt])
+}
+
+model ContributionQuota {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart DateTime         @db.Date
+  type      ContributionType
+  count     Int              @default(0)
+
+  @@unique([userId, weekStart, type])
+  @@index([weekStart, type])
+}
+
+model ContributionReward {
+  id                 String           @id @default(cuid())
+  sourceSubmissionId String           @unique
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type               ContributionType
+  contentId          String
+  coinAmount         Int
+  pointsAmount       Int
+  approvedAt         DateTime         @default(now())
+
+  @@index([userId, approvedAt])
 }

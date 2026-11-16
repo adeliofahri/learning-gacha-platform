@@ -1,4 +1,4 @@
-import { BookOpen, Gift, LayoutDashboard, Sparkles, User, Library } from "lucide-react";
+import { BookOpen, Gift, LayoutDashboard, Sparkles, User, Library, HandHeart } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { NavLink } from "@/components/layout/nav-link";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/gacha", label: "Gacha", icon: Sparkles },
   { href: "/collection", label: "Koleksi", icon: Library },
   { href: "/events", label: "Event", icon: Gift },
+  { href: "/contribute", label: "Kontribusi", icon: HandHeart },
   { href: "/profile", label: "Profil", icon: User },
 ];
 
@@ -45,7 +46,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
           {children}
         </main>
         <nav
-          className="bg-card fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t md:hidden"
+          className="bg-card fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t md:hidden"
           aria-label="Navigasi siswa (mobile)"
         >
           {NAV.map((n) => (

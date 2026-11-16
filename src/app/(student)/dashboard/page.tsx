@@ -12,15 +12,25 @@ import { getWallet } from "@/server/services/wallet.service";
 import { getLearningSummary } from "@/server/services/learning.service";
 import { listBannersForStudent } from "@/server/services/gacha.service";
 import { listInventory, totalStars } from "@/server/services/collection.service";
-import { leaderboard, myRank } from "@/server/services/leaderboard.service";
+import { leaderboard, myRank, topContributors } from "@/server/services/leaderboard.service";
 import { AVAILABILITY_LABEL } from "@/server/domain/banner";
 import { formatDate } from "@/lib/utils";
+import { TopContributorsTable } from "@/components/leaderboard/top-contributors-table";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireStudentPage();
-  const [wallet, learning, banners, inventory, stars, top, rank] = await Promise.all([
+  const [
+    wallet,
+    learning,
+    banners,
+    inventory,
+    stars,
+    top,
+    rank,
+    contributors,
+  ] = await Promise.all([
     getWallet(user.id),
     getLearningSummary(user.id),
     listBannersForStudent(),
@@ -28,6 +38,7 @@ export default async function DashboardPage() {
     totalStars(user.id),
     leaderboard("lifetime", undefined, 5),
     myRank(user.id, "lifetime"),
+    topContributors(5),
   ]);
   const activeBanners = banners.filter((b) => b.availability === "ACTIVE");
   const recent = [...inventory].sort((a, b) => +b.firstObtainedAt - +a.firstObtainedAt).slice(0, 4);
@@ -199,8 +210,27 @@ export default async function DashboardPage() {
               <Link href="/leaderboard">Lihat</Link>
             </Button>
           </CardHeader>
+
           <CardContent>
-            <LeaderboardTable entries={top.entries} compact highlight={user.username} />
+            <LeaderboardTable
+              entries={top.entries}
+              compact
+              highlight={user.username}
+            />
+
+            <div className="mt-6 border-t pt-5">
+              <div className="mb-3">
+                <h3 className="font-bold">Top Users by Contribution</h3>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Siswa dengan Contribution Points tertinggi.
+                </p>
+              </div>
+
+              <TopContributorsTable
+                entries={contributors}
+                highlight={user.username}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>

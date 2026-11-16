@@ -35,32 +35,62 @@ export async function getInventoryItem(userId: string, characterId: string) {
 }
 
 /** Avatar hanya dari karakter milik user — diverifikasi di server. */
+/** Avatar hanya dari karakter milik user — diverifikasi di server. */
 export async function updateProfile(
   userId: string,
-  input: { isPublic?: boolean; avatarCharacterId?: string | null },
+  input: {
+    avatarCharacterId?: string | null;
+    bio?: string | null;
+  },
 ) {
   if (input.avatarCharacterId) {
     const owned = await prisma.inventoryItem.findUnique({
-      where: { userId_characterId: { userId, characterId: input.avatarCharacterId } },
+      where: {
+        userId_characterId: {
+          userId,
+          characterId: input.avatarCharacterId,
+        },
+      },
     });
+
     if (!owned || owned.quantity <= 0) {
-      throw new AppError("FORBIDDEN", "Avatar hanya dapat dipilih dari karakter yang kamu miliki");
+      throw new AppError(
+        "FORBIDDEN",
+        "Avatar hanya dapat dipilih dari karakter yang kamu miliki",
+      );
     }
   }
+
   return prisma.user.update({
     where: { id: userId },
-    data: { isPublic: input.isPublic, avatarCharacterId: input.avatarCharacterId },
-    select: { id: true, username: true, isPublic: true, avatarCharacterId: true },
+    data: {
+      isPublic: true,
+      ...(input.avatarCharacterId !== undefined
+        ? { avatarCharacterId: input.avatarCharacterId }
+        : {}),
+      ...(input.bio !== undefined ? { bio: input.bio } : {}),
+    },
+    select: {
+      id: true,
+      username: true,
+      avatarCharacterId: true,
+      bio: true,
+    },
   });
 }
 
 export async function getProfileSummary(userId: string) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { username: true, isPublic: true, avatarCharacter: true, avatarCharacterId: true },
+    select: {
+      username: true,
+      avatarCharacter: true,
+      avatarCharacterId: true,
+      bio: true,
+    },
   });
   const stars = await totalStars(userId);
-  return { ...user, totalStars: stars };
+  return { ...user, isPublic: true, totalStars: stars };
 }
 
 export async function totalStars(userId: string): Promise<number> {
@@ -74,13 +104,14 @@ export async function totalStars(userId: string): Promise<number> {
 /** Profil publik: TIDAK pernah mengembalikan email, hash password, saldo, atau data privat. */
 export async function getPublicProfile(username: string) {
   const user = await prisma.user.findFirst({
-    where: { username, role: "STUDENT", status: "ACTIVE" },
+    where: { username, status: "ACTIVE" },
     select: {
       id: true,
       username: true,
-      isPublic: true,
+      bio: true,
       createdAt: true,
-      avatarCharacter:{
+      contributionPoints: true,
+      avatarCharacter: {
         select: {
           id: true,
           name: true,
@@ -95,36 +126,76 @@ export async function getPublicProfile(username: string) {
     },
   });
   if (!user) throw notFound("Profil");
-  const stars = await totalStars(user.id);
-  const collection = user.isPublic
-    ? (
-        await prisma.inventoryItem.findMany({
-          where: { userId: user.id, quantity: { gt: 0 } },
-          include: {
-            character: {
-              select: {
-                id: true,
-                name: true,
-                rarity: true,
-                imageUrl: true,
-                category: true,
-                limitedBorderType: true,
-                limitedBorderConfig: true,
-                limitedBorderImageUrl: true,
-              },
-            },
+
+  const [stars, collectionRows, questions, characters] = await Promise.all([
+    totalStars(user.id),
+    prisma.inventoryItem.findMany({
+      where: { userId: user.id, quantity: { gt: 0 } },
+      include: {
+        character: {
+          select: {
+            id: true,
+            name: true,
+            rarity: true,
+            imageUrl: true,
+            category: true,
+            limitedBorderType: true,
+            limitedBorderConfig: true,
+            limitedBorderImageUrl: true,
           },
-          orderBy: [{ character: { rarity: "desc" } }, { firstObtainedAt: "asc" }],
-        })
-      ).map((i) => i.character)
-    : null;
+        },
+      },
+      orderBy: [{ character: { rarity: "desc" } }, { firstObtainedAt: "asc" }],
+    }),
+    prisma.question.findMany({
+      where: { createdById: user.id, status: "PUBLISHED" },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        imageUrl: true,
+        type: true,
+        difficulty: true,
+        createdAt: true,
+        subject: { select: { name: true } },
+        options: {
+          select: {
+            text: true,
+            order: true,
+          },
+          orderBy: { order: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.character.findMany({
+      where: { createdById: user.id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        rarity: true,
+        imageUrl: true,
+        category: true,
+        limitedBorderType: true,
+        limitedBorderConfig: true,
+        limitedBorderImageUrl: true,
+        status: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
   return {
     username: user.username,
+    bio: user.bio,
     avatar: user.avatarCharacter,
     totalStars: stars,
-    isPublic: user.isPublic,
+    contributionPoints: user.contributionPoints,
     memberSince: user.createdAt,
-    collection,
+    collection: collectionRows.map((item) => item.character),
+    questions,
+    characters,
   };
 }
 
@@ -153,7 +224,7 @@ export async function createCharacter(adminId: string, input: CharacterInput) {
   try {
     return await transaction(async (tx) => {
       const c = await tx.character.create({
-        data: characterBorderData(input),
+        data: { ...characterBorderData(input), createdById: adminId },
       });
       await logAudit(tx, {
         actorId: adminId,

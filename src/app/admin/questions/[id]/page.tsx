@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader, Alert } from "@/components/ui/misc";
 import { QuestionForm } from "@/components/admin/question-form";
+import { QuestionDeleteButton } from "@/components/admin/question-delete-button";
 import { prisma } from "@/lib/db";
 import { getDifficultyConfig } from "@/server/services/learning.service";
 
@@ -29,12 +30,13 @@ export default async function EditQuestionPage({ params }: { params: Promise<{ i
       <PageHeader
         title={`Edit soal (v${q.version})`}
         description={`${q._count.attempts} attempt · ${q._count.solves} siswa solved`}
+        actions={<QuestionDeleteButton id={q.id} title={q.title} attempts={q._count.attempts} solves={q._count.solves} />}
       />
       {q._count.attempts > 0 && (
         <Alert variant="warning" className="mb-4" title="Soal sudah pernah dikerjakan">
           Perubahan akan menaikkan versi soal; histori attempt tetap menyimpan snapshot lama. Tipe
           soal tidak dapat diubah. Mengubah bounty tidak memberi reward tambahan kepada siswa yang
-          sudah solved. Soal tidak dapat dihapus — gunakan status Diarsipkan.
+          sudah solved. Jika dihapus, seluruh attempt dan reward historis tetap dipertahankan, tetapi tidak lagi terhubung ke soal.
         </Alert>
       )}
       <QuestionForm

@@ -312,7 +312,6 @@
   );
   animation: rarity-border-rotate 4s linear infinite;
 
-  /* Hanya menampilkan highlight di bagian tepi. */
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -320,7 +319,9 @@
   mask-composite: exclude;
 
   opacity: 0.8;
-  mix-blend-mode: screen;
+  mix-blend-mode: normal;
+  isolation: isolate;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

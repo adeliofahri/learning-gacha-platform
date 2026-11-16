@@ -47,7 +47,7 @@ describe("avatar", () => {
       req("/api/profile", {
         method: "PATCH",
         token: s.token,
-        body: { avatarCharacterId: c.id, isPublic: true },
+        body: { avatarCharacterId: c.id },
       }),
     );
     expect(res.status).toBe(200);
@@ -59,17 +59,16 @@ describe("avatar", () => {
 });
 
 describe("profil publik", () => {
-  it("tidak membocorkan email/hash; koleksi hanya bila publik", async () => {
+  it("selalu menampilkan profil dan koleksi tanpa membocorkan data privat", async () => {
     const s = await registerStudent();
     const c = await makeCharacter(4);
     await own(s.id, c.id);
-    const priv = await getPublicProfile(s.username);
-    expect(priv.collection).toBeNull();
-    expect(priv.totalStars).toBe(4);
-    const serialized = JSON.stringify(priv);
+    const publicProfile = await getPublicProfile(s.username);
+    expect(publicProfile.collection).toHaveLength(1);
+    expect(publicProfile.totalStars).toBe(4);
+    const serialized = JSON.stringify(publicProfile);
     expect(serialized).not.toContain("@test.local");
     expect(serialized).not.toContain("argon2");
-    await prisma.user.update({ where: { id: s.id }, data: { isPublic: true } });
     expect((await getPublicProfile(s.username)).collection).toHaveLength(1);
   });
 });

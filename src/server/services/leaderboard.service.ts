@@ -6,7 +6,11 @@ import {
   parseMonthKey,
   type MonthKey,
 } from "@/server/domain/leaderboard";
-import { getLeaderboard, getUserRank } from "@/server/repositories/leaderboard.repository";
+import {
+  getLeaderboard,
+  getUserRank,
+  getTopContributors,
+} from "@/server/repositories/leaderboard.repository";
 
 export type Period = "lifetime" | "monthly";
 
@@ -30,4 +34,8 @@ export async function leaderboard(period?: string, month?: string, limit = 50) {
 export async function myRank(userId: string, period?: string, month?: string) {
   const r = resolvePeriod(period, month);
   return getUserRank(userId, r.range);
+}
+
+export async function topContributors(limit = 10) {
+  return getTopContributors(limit);
 }
