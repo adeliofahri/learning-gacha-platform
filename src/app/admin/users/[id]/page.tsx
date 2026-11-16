@@ -26,7 +26,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <PageHeader
         title={user.username}
-        description={`${user.email} · terdaftar ${formatDateTime(user.createdAt)} · profil ${user.isPublic ? "publik" : "privat"}`}
+        description={`${user.email} · terdaftar ${formatDateTime(user.createdAt)}`}
         actions={<UserStatusToggle userId={user.id} status={user.status} />}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

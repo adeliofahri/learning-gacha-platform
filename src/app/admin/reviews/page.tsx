@@ -29,6 +29,8 @@ export default async function ReviewsPage({
       },
     }),
   ]);
+  const reviewItems = items.filter((item) => item.question !== null);
+
   return (
     <div className="space-y-8">
       <div>
@@ -36,14 +38,16 @@ export default async function ReviewsPage({
           title="Review jawaban isian"
           description={`${total} jawaban menunggu review. Approve memberi bounty satu kali; reject memungkinkan siswa mengirim ulang.`}
         />
-        {items.length === 0 ? (
+        {reviewItems.length === 0 ? (
           <EmptyState
             title="Tidak ada jawaban yang menunggu"
             description="Semua jawaban sudah diperiksa. 🎉"
           />
         ) : (
           <div className="space-y-4">
-            {items.map((a) => {
+            {reviewItems.map((a) => {
+              if (!a.question) return null;
+
               const match = a.question.acceptedAnswers.some(
                 (x) => normalizeAnswer(x.text) === normalizeAnswer(a.answerText ?? ""),
               );
@@ -102,7 +106,9 @@ export default async function ReviewsPage({
                 <Badge variant={r.status === "APPROVED" ? "success" : "destructive"}>
                   {r.status === "APPROVED" ? "Disetujui" : "Ditolak"}
                 </Badge>
-                <span className="font-medium">{r.question.title}</span>
+                <span className="font-medium">
+                  {r.question?.title ?? ((r.snapshot as { title?: string }).title ?? "Soal telah dihapus")}
+                </span>
                 <span className="text-muted-foreground">
                   — {r.user.username} · oleh {r.reviewedBy?.username ?? "?"} ·{" "}
                   {r.reviewedAt && formatDateTime(r.reviewedAt)}

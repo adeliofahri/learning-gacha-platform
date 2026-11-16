@@ -356,6 +356,58 @@ export async function updateQuestion(adminId: string, id: string, input: Questio
   });
 }
 
+export async function deleteQuestion(adminId: string, id: string) {
+  return transaction(async (tx) => {
+    const question = await tx.question.findUnique({
+      where: { id },
+      select: { id: true, title: true, imageUrl: true },
+    });
+    if (!question) throw notFound("Soal");
+
+    // Paket tetap dipublikasikan; hanya relasi ke soal ini yang dilepas.
+    await tx.packageQuestion.deleteMany({ where: { questionId: id } });
+    // Attempt dan QuestionSolve dipertahankan. FK onDelete:SetNull melepaskan
+    // questionId, sedangkan snapshot, jawaban, bounty, dan ledger tetap utuh.
+    await tx.question.delete({ where: { id } });
+
+    if (question.imageUrl) {
+      const filename = question.imageUrl.split("/").at(-1);
+      if (filename) {
+        const [questionRefs, characterRefs, packageRefs, bannerRefs, pendingRefs] = await Promise.all([
+          tx.question.count({ where: { imageUrl: { endsWith: filename } } }),
+          tx.character.count({
+            where: {
+              OR: [
+                { imageUrl: { endsWith: filename } },
+                { limitedBorderImageUrl: { endsWith: filename } },
+              ],
+            },
+          }),
+          tx.package.count({ where: { coverImageUrl: { endsWith: filename } } }),
+          tx.banner.count({ where: { imageUrl: { endsWith: filename } } }),
+          tx.$queryRaw<{ count: number }[]>`
+            SELECT COUNT(*)::int AS count
+            FROM "ContributionSubmission"
+            WHERE "content"::text LIKE ${`%${filename}%`}
+          `,
+        ]);
+        if (questionRefs + characterRefs + packageRefs + bannerRefs + (pendingRefs[0]?.count ?? 0) === 0) {
+          await tx.uploadedImage.deleteMany({ where: { filename } });
+        }
+      }
+    }
+
+    await logAudit(tx, {
+      actorId: adminId,
+      action: "QUESTION_DELETE",
+      targetType: "Question",
+      targetId: id,
+      metadata: { title: question.title, preservedHistory: true },
+    });
+    return { id, deleted: true, preservedHistory: true };
+  });
+}
+
 export async function setQuestionStatus(adminId: string, id: string, status: ContentStatus) {
   return transaction(async (tx) => {
     const q = await tx.question.update({ where: { id }, data: { status } }).catch(() => {
@@ -534,9 +586,11 @@ async function statusMap(userId: string, questionIds: string[]) {
       select: { questionId: true, status: true },
     }),
   ]);
-  const solved = new Set(solves.map((s) => s.questionId));
+  const solved = new Set<string>(solves.flatMap((s) => s.questionId ? [s.questionId] : []));
   const byQ = new Map<string, AttemptStatus[]>();
-  for (const a of attempts) byQ.set(a.questionId, [...(byQ.get(a.questionId) ?? []), a.status]);
+  for (const a of attempts) {
+    if (a.questionId) byQ.set(a.questionId, [...(byQ.get(a.questionId) ?? []), a.status]);
+  }
   const result = new Map<string, QuestionProgressStatus>();
   for (const id of questionIds) {
     result.set(
@@ -573,7 +627,7 @@ export async function listPackagesForStudent(
     where: { userId, questionId: { in: allIds } },
     select: { questionId: true },
   });
-  const solved = new Set(solves.map((s) => s.questionId));
+  const solved = new Set<string>(solves.flatMap((s) => s.questionId ? [s.questionId] : []));
   return packages.map((p) => ({
     id: p.id,
     title: p.title,
@@ -590,6 +644,7 @@ export async function listPackagesForStudent(
 
 export type StudentQuestionView = {
   imageUrl: string | null;
+  createdBy?: { id: string; username: string };
   id: string;
   order: number;
   title: string;
@@ -627,7 +682,11 @@ export async function getPackageForStudent(userId: string, packageId: string) {
         orderBy: { order: "asc" },
         include: {
           question: {
-            include: { options: { orderBy: { order: "asc" } }, acceptedAnswers: true },
+            include: {
+              options: { orderBy: { order: "asc" } },
+              acceptedAnswers: true,
+              createdBy: { select: { id: true, username: true } },
+            },
           },
         },
       },
@@ -663,7 +722,10 @@ export async function getPackageForStudent(userId: string, packageId: string) {
     distinct: ["questionId"],
     select: { questionId: true, status: true, feedback: true, reviewedAt: true, answerText: true },
   });
-  const lastByQ = new Map(lastShort.map((a) => [a.questionId, a]));
+  const lastByQ = new Map<string, (typeof lastShort)[number]>();
+  for (const attempt of lastShort) {
+    if (attempt.questionId) lastByQ.set(attempt.questionId, attempt);
+  }
 
   const questions: StudentQuestionView[] = pkg.items.map((item, index) => {
     const q = item.question;
@@ -674,6 +736,7 @@ export async function getPackageForStudent(userId: string, packageId: string) {
       order: index + 1,
       title: q.title,
       imageUrl: q.imageUrl,
+      createdBy: q.createdBy,
       content: q.content,
       type: q.type,
       difficulty: q.difficulty,
@@ -683,7 +746,7 @@ export async function getPackageForStudent(userId: string, packageId: string) {
       explanation: isSolved ? q.explanation : null,
       correctOptionId:
         isSolved && q.type === "MULTIPLE_CHOICE"
-          ? q.options.find((o) => o.isCorrect)?.id ?? null
+          ? q?.options.find((o) => o.isCorrect)?.id ?? null
           : null,
       acceptedAnswers:
         isSolved && q.type === "SHORT_ANSWER" ? q.acceptedAnswers.map((a) => a.text) : [],
@@ -699,7 +762,7 @@ export async function getPackageForStudent(userId: string, packageId: string) {
         unlockCost,
         correctOptionIds:
           isSolved && q.type === "MULTIPLE_SELECT"
-            ? q.options.filter((o) => o.isCorrect).map((o) => o.id)
+            ? q?.options.filter((o) => o.isCorrect).map((o) => o.id) ?? []
             : [],
 
         correctTrueFalseAnswers:
@@ -766,23 +829,16 @@ async function buildAttemptResult(
     },
   });
 
-  const solvedNow = await prisma.questionSolve.findUnique({
-    where: {
-      userId_questionId: {
-        userId: a.userId,
-        questionId: a.questionId,
-      },
-    },
-  });
-
-  const cooldown = await prisma.questionCooldown.findUnique({
-    where: {
-      userId_questionId: {
-        userId: a.userId,
-        questionId: a.questionId,
-      },
-    },
-  });
+  const [solvedNow, cooldown] = a.questionId
+    ? await Promise.all([
+        prisma.questionSolve.findUnique({
+          where: { userId_questionId: { userId: a.userId, questionId: a.questionId } },
+        }),
+        prisma.questionCooldown.findUnique({
+          where: { userId_questionId: { userId: a.userId, questionId: a.questionId } },
+        }),
+      ])
+    : [null, null];
 
   const cooldownUntil =
     cooldown && cooldown.expiresAt > new Date()
@@ -809,28 +865,28 @@ async function buildAttemptResult(
     bountyAwarded: a.solve?.bountyAwarded ?? 0,
 
     correctOptionId:
-      reveal && q.type === "MULTIPLE_CHOICE"
-        ? q.options.find((o) => o.isCorrect)?.id ?? null
+      reveal && q?.type === "MULTIPLE_CHOICE"
+        ? q?.options.find((o) => o.isCorrect)?.id ?? null
         : null,
 
     correctOptionIds:
-      reveal && q.type === "MULTIPLE_SELECT"
-        ? q.options.filter((o) => o.isCorrect).map((o) => o.id)
+      reveal && q?.type === "MULTIPLE_SELECT"
+        ? q?.options.filter((o) => o.isCorrect).map((o) => o.id) ?? []
         : [],
 
     correctTrueFalseAnswers:
-      reveal && q.type === "TRUE_FALSE"
-        ? q.options.map((o) => ({
+      reveal && q?.type === "TRUE_FALSE"
+        ? q?.options.map((o) => ({
             optionId: o.id,
             value: o.isCorrect,
-          }))
+          })) ?? []
         : [],
 
-    explanation: reveal ? q.explanation : null,
+    explanation: reveal ? q?.explanation ?? null : null,
 
     acceptedAnswers:
-      reveal && q.type === "SHORT_ANSWER"
-        ? q.acceptedAnswers.map((x) => x.text)
+      reveal && q?.type === "SHORT_ANSWER"
+        ? q?.acceptedAnswers.map((x) => x.text) ?? []
         : [],
 
     coins: a.user.wallet?.coins ?? 0,
@@ -1161,7 +1217,7 @@ export async function submitAttempt(params: {
 // ───────────────────────────── Review (admin) ─────────────────────────────
 
 export async function listPendingReviews(page: number, pageSize: number) {
-  const where = { status: "PENDING_REVIEW" as const };
+  const where = { status: "PENDING_REVIEW" as const, questionId: { not: null } };
   const [items, total] = await Promise.all([
     prisma.attempt.findMany({
       where,
@@ -1191,12 +1247,17 @@ export async function reviewAttempt(params: {
         include: { question: true },
       });
       if (!attempt) throw notFound("Jawaban");
-      await tx.$executeRaw`
-        SELECT pg_advisory_xact_lock(
-          hashtext(${attempt.userId}),
-          hashtext(${attempt.questionId})
-        )
-      `;
+      if (attempt.questionId) {
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(
+            hashtext(${attempt.userId}),
+            hashtext(${attempt.questionId})
+          )
+        `;
+      }
+      if (params.decision === "APPROVE" && (!attempt.questionId || !attempt.question)) {
+        throw new AppError("CONFLICT", "Soal sudah dihapus; jawaban historis tidak dapat diberi bounty.");
+      }
       // Update bersyarat: hanya satu reviewer yang bisa memproses attempt ini.
       const updated = await tx.attempt.updateMany({
         where: { id: params.attemptId, status: "PENDING_REVIEW" },
@@ -1209,7 +1270,7 @@ export async function reviewAttempt(params: {
       });
       if (updated.count === 0) throw new AppError("CONFLICT", "Jawaban ini sudah direview");
 
-      if (params.decision === "REJECT") {
+      if (params.decision === "REJECT" && attempt.questionId) {
         const expiresAt = new Date(Date.now() + QUESTION_COOLDOWN_MS);
 
         await tx.questionCooldown.upsert({
@@ -1230,7 +1291,7 @@ export async function reviewAttempt(params: {
         });
       }
       let bountyAwarded = 0;
-      if (params.decision === "APPROVE") {
+      if (params.decision === "APPROVE" && attempt.questionId && attempt.question) {
         const solved = await tx.questionSolve.findUnique({
           where: { userId_questionId: { userId: attempt.userId, questionId: attempt.questionId } },
         });
@@ -1300,7 +1361,7 @@ export async function getLearningSummary(userId: string) {
     where: { userId, questionId: { in: ids } },
     select: { questionId: true },
   });
-  const solvedSet = new Set(solves.map((s) => s.questionId));
+  const solvedSet = new Set<string>(solves.flatMap((s) => s.questionId ? [s.questionId] : []));
   return {
     solvedCount,
     publishedCount,

@@ -1,6 +1,7 @@
 import {
   BookOpen,
   ClipboardCheck,
+  HandHeart,
   FolderTree,
   Gift,
   Image as ImageIcon,
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/admin/subjects", label: "Mapel & topik", icon: FolderTree },
   { href: "/admin/packages", label: "Paket", icon: Package },
   { href: "/admin/reviews", label: "Review jawaban", icon: ClipboardCheck },
+  { href: "/admin/contributions", label: "Pending Request", icon: HandHeart },
   { href: "/admin/characters", label: "Karakter", icon: ImageIcon },
   { href: "/admin/banners", label: "Banner gacha", icon: Sparkles },
   { href: "/admin/users", label: "Siswa", icon: Users },

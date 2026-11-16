@@ -21,10 +21,14 @@ export function CharacterForm({
   library,
   initial,
   lockRarity = false,
+  contributionId,
+  submissionMode = false,
 }: {
   library: string[];
-  initial?: FormIn & { id: string };
+  initial?: FormIn & { id?: string };
   lockRarity?: boolean;
+  contributionId?: string;
+  submissionMode?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +78,8 @@ export function CharacterForm({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/uploads", {
+      if (submissionMode) fd.append("kind", "CHARACTER");
+      const res = await fetch(submissionMode ? "/api/contributions/images" : "/api/admin/uploads", {
         method: "POST",
         body: fd,
         credentials: "same-origin",
@@ -98,7 +103,20 @@ export function CharacterForm({
           setSaved(false);
 
           try {
-            if (initial) {
+            if (submissionMode) {
+              await apiFetch("/api/contributions", {
+                body: { type: "CHARACTER", content: values },
+              });
+              setSaved(true);
+              router.refresh();
+            } else if (contributionId) {
+              await apiFetch(`/api/admin/contributions/${contributionId}`, {
+                method: "POST",
+                body: { action: "APPROVE", content: values },
+              });
+              router.push("/admin/contributions");
+              router.refresh();
+            } else if (initial?.id) {
               await apiFetch(`/api/admin/characters/${initial.id}`, {
                 method: "PUT",
                 body: values,
@@ -167,6 +185,7 @@ export function CharacterForm({
                 <option value="LIMITED">Limited</option>
               </Select>
             </div>
+            {!submissionMode && (
             <div className="space-y-1.5">
               <Label htmlFor="status">Status</Label>
               <Select id="status" {...form.register("status")}>
@@ -174,6 +193,7 @@ export function CharacterForm({
                 <option value="ARCHIVED">Diarsipkan</option>
               </Select>
             </div>
+            )}
           </div>
           {v.category === "LIMITED" && (
             <div className="space-y-4 rounded-lg border p-4">
@@ -368,12 +388,16 @@ export function CharacterForm({
                       try {
                         const fd = new FormData();
                         fd.append("file", file);
+                        if (submissionMode) fd.append("kind", "CHARACTER");
 
-                        const res = await fetch("/api/admin/uploads", {
-                          method: "POST",
-                          body: fd,
-                          credentials: "same-origin",
-                        });
+                        const res = await fetch(
+                          submissionMode ? "/api/contributions/images" : "/api/admin/uploads",
+                          {
+                            method: "POST",
+                            body: fd,
+                            credentials: "same-origin",
+                          },
+                        );
 
                         const data = await res.json();
 
@@ -487,13 +511,13 @@ export function CharacterForm({
           />
         )}
         {error && <Alert variant="error">{error}</Alert>}
-        {saved && <Alert variant="success">Karakter tersimpan.</Alert>}
+        {saved && <Alert variant="success">{submissionMode ? "Kontribusi karakter berhasil dikirim untuk review." : "Karakter tersimpan."}</Alert>}
         <Button
           type="submit"
           className="w-full"
           disabled={form.formState.isSubmitting || uploading}
         >
-          {form.formState.isSubmitting ? "Menyimpan…" : "Simpan"}
+          {form.formState.isSubmitting ? "Menyimpan…" : submissionMode ? "Kirim untuk review" : "Simpan"}
         </Button>
       </div>
     </form>

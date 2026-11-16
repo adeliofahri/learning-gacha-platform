@@ -1,10 +1,14 @@
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { LinkTabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/misc";
-import { leaderboard } from "@/server/services/leaderboard.service";
+import {
+  leaderboard,
+  topContributors,
+} from "@/server/services/leaderboard.service";
 import { appTimezone } from "@/lib/env";
 import { firstParam } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { TopContributorsTable } from "@/components/leaderboard/top-contributors-table";
 
 export const metadata = { title: "Leaderboard" };
 export const dynamic = "force-dynamic";
@@ -16,6 +20,7 @@ export default async function LeaderboardPage({
 }) {
   const sp = await searchParams;
   const data = await leaderboard(firstParam(sp.period), firstParam(sp.month), 100);
+  const contributors = await topContributors(10);
   const user = await getCurrentUser();
   const [y, m] = data.month.split("-").map(Number);
   const monthLabel = new Intl.DateTimeFormat("id-ID", {
@@ -70,7 +75,22 @@ export default async function LeaderboardPage({
           waktu {appTimezone()}).
         </p>
       )}
-      <LeaderboardTable entries={data.entries} highlight={user?.username} />
+      <LeaderboardTable
+        entries={data.entries}
+        highlight={user?.username}
+      />
+
+      <section className="mt-10">
+        <PageHeader
+          title="Top Users by Contribution"
+          description="Peringkat siswa berdasarkan total Contribution Points yang diperoleh dari kontribusi yang disetujui."
+        />
+
+        <TopContributorsTable
+          entries={contributors}
+          highlight={user?.username}
+        />
+      </section>
     </div>
   );
 }

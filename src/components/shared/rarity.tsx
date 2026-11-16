@@ -155,9 +155,9 @@ export function CharacterTile({
         className,
       )}
     >
-      <div
-        className={cn(
-          "relative size-[104px] rounded-xl p-1",
+    <div
+      className={cn(
+        "relative isolate size-[104px] overflow-hidden rounded-xl p-1",
           borderType === "PRESET" &&
             cn(
               "bg-gradient-to-br ring-2",

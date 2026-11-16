@@ -58,6 +58,8 @@ export function QuestionForm({
   bounties,
   initial,
   lockType = false,
+  contributionId,
+  submissionMode = false,
 }: {
   subjects: {
     id: string;
@@ -67,6 +69,8 @@ export function QuestionForm({
   bounties: Record<Difficulty, number>;
   initial?: FormValues;
   lockType?: boolean;
+  contributionId?: string;
+  submissionMode?: boolean;
 }) {
   const router = useRouter();
 
@@ -152,17 +156,24 @@ export function QuestionForm({
         setError(null);
         setSaved(false);
 
-        const base = {
-          subjectId: values.subjectId,
-          topicId: values.topicId || null,
-          title: values.title,
-          content: values.content,
-          imageUrl: values.imageUrl || null,
-          difficulty: values.difficulty,
-          bounty: Number(values.bounty),
-          explanation: values.explanation || null,
-          status: values.status,
-        };
+        const base = submissionMode
+          ? {
+              title: values.title,
+              content: values.content,
+              imageUrl: values.imageUrl || null,
+              explanation: values.explanation || null,
+            }
+          : {
+              subjectId: values.subjectId,
+              topicId: values.topicId || null,
+              title: values.title,
+              content: values.content,
+              imageUrl: values.imageUrl || null,
+              difficulty: values.difficulty,
+              bounty: Number(values.bounty),
+              explanation: values.explanation || null,
+              status: values.status,
+            };
 
         const body =
           values.type === "SHORT_ANSWER"
@@ -183,7 +194,20 @@ export function QuestionForm({
               };
 
         try {
-          if (initial?.id) {
+          if (submissionMode) {
+            await apiFetch("/api/contributions", {
+              body: { type: "QUESTION", content: body },
+            });
+            setSaved(true);
+            router.refresh();
+          } else if (contributionId) {
+            await apiFetch(`/api/admin/contributions/${contributionId}`, {
+              method: "POST",
+              body: { action: "APPROVE", content: body },
+            });
+            router.push("/admin/contributions");
+            router.refresh();
+          } else if (initial?.id) {
             await apiFetch(`/api/admin/questions/${initial.id}`, {
               method: "PUT",
               body,
@@ -212,7 +236,8 @@ export function QuestionForm({
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            {!submissionMode && (
+              <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="subjectId">Mata pelajaran</Label>
 
@@ -247,7 +272,8 @@ export function QuestionForm({
                   ))}
                 </Select>
               </div>
-            </div>
+              </div>
+            )}
 
             {/* JUDUL */}
             <div className="space-y-1.5">
@@ -325,8 +351,9 @@ export function QuestionForm({
                     try {
                       setUploading(true);
 
+                      if (submissionMode) formData.append("kind", "QUESTION");
                       const response = await fetch(
-                        "/api/admin/question-images",
+                        submissionMode ? "/api/contributions/images" : "/api/admin/question-images",
                         {
                           method: "POST",
                           body: formData,
@@ -760,6 +787,8 @@ export function QuestionForm({
               </Select>
             </div>
 
+            {!submissionMode && (
+            <>
             <div className="space-y-1.5">
               <Label htmlFor="difficulty">
                 Tingkat kesulitan
@@ -783,40 +812,42 @@ export function QuestionForm({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="bounty">Bounty (koin)</Label>
+            {!contributionId && (
+              <div className="space-y-1.5">
+                <Label htmlFor="bounty">Bounty (koin)</Label>
+                <Input
+                  id="bounty"
+                  type="number"
+                  min={0}
+                  max={10000}
+                  {...form.register("bounty", { valueAsNumber: true })}
+                />
+              </div>
+            )}
+            {contributionId && (
+              <p className="text-xs text-muted-foreground">
+                Bounty akhir mengikuti konfigurasi kesulitan yang dipilih di atas.
+              </p>
+            )}
 
-              <Input
-                id="bounty"
-                type="number"
-                min={0}
-                max={10000}
-                {...form.register("bounty", {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="status">Status</Label>
-
-              <Select
-                id="status"
-                {...form.register("status")}
-              >
-                {Object.entries(CONTENT_STATUS_LABEL).map(([k, l]) => (
-                  <option key={k} value={k}>
-                    {l}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {!contributionId && (
+              <div className="space-y-1.5">
+                <Label htmlFor="status">Status</Label>
+                <Select id="status" {...form.register("status")}>
+                  {Object.entries(CONTENT_STATUS_LABEL).map(([k, l]) => (
+                    <option key={k} value={k}>{l}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            </>
+            )}
 
             {error && <Alert variant="error">{error}</Alert>}
 
             {saved && (
               <Alert variant="success">
-                Soal tersimpan.
+                {submissionMode ? "Kontribusi soal berhasil dikirim untuk review." : "Soal tersimpan."}
               </Alert>
             )}
 
@@ -828,7 +859,7 @@ export function QuestionForm({
               >
                 {form.formState.isSubmitting
                   ? "Menyimpan…"
-                  : "Simpan"}
+                  : submissionMode ? "Kirim untuk review" : "Simpan"}
               </Button>
 
               <Button

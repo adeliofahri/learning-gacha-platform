@@ -49,7 +49,7 @@ describe("register & login", () => {
     expect(user.role).toBe("STUDENT");
     expect(user.status).toBe("PENDING_VERIFICATION");
     expect(user.emailVerifiedAt).toBeNull();
-    expect(user.isPublic).toBe(false);
+    expect(user.isPublic).toBe(true);
 
     expect(user.passwordHash).not.toContain("Rahasia123");
     expect(user.passwordHash.startsWith("$argon2id$")).toBe(true);

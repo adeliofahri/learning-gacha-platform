@@ -2,6 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { CheckCircle2, Clock, XCircle, Unlock } from "lucide-react";
@@ -287,6 +288,14 @@ export function QuestionCard({
             Bounty <CoinAmount value={question.bounty} />
           </span>
         </div>
+        {question.createdBy && (
+          <p className="text-xs text-muted-foreground">
+            Dibuat oleh{" "}
+            <Link className="font-semibold text-primary hover:underline" href={`/students/${encodeURIComponent(question.createdBy.username)}`}>
+              {question.createdBy.username}
+            </Link>
+          </p>
+        )}
 
           <h2 className="text-lg font-bold">
             <MathContent content={question.title} />

@@ -20,7 +20,7 @@ export default async function ProfilePage() {
     <div className="mx-auto max-w-4xl">
       <PageHeader
         title="Profil"
-        description="Atur avatar dan visibilitas profil publikmu. Email tidak pernah ditampilkan ke publik."
+        description="Profil dan kontribusimu dapat dilihat publik. Email dan informasi keamanan akun tetap privat."
         actions={
           <Button asChild variant="outline">
             <Link href={`/students/${profile.username}`}>
@@ -32,8 +32,8 @@ export default async function ProfilePage() {
       <ProfileForm
         username={profile.username}
         totalStars={profile.totalStars}
-        isPublic={profile.isPublic}
         avatarCharacterId={profile.avatarCharacterId}
+        bio={profile.bio}
         owned={inventory.map((i) => ({
           id: i.characterId,
           name: i.character.name,

@@ -61,3 +61,46 @@ export async function getUserRank(userId: string, range: Range): Promise<Leaderb
   const { userId: _userId, ...rest } = row;
   return rest;
 }
+
+export type ContributorLeaderboardEntry = {
+  rank: number;
+  username: string;
+  avatarUrl: string | null;
+  contributionPoints: number;
+};
+
+/** Top students berdasarkan Contribution Points. */
+export async function getTopContributors(
+  limit = 10,
+): Promise<ContributorLeaderboardEntry[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      role: "STUDENT",
+      status: "ACTIVE",
+      contributionPoints: {
+        gt: 0,
+      },
+    },
+    orderBy: [
+      { contributionPoints: "desc" },
+      { username: "asc" },
+    ],
+    take: limit,
+    select: {
+      username: true,
+      contributionPoints: true,
+      avatarCharacter: {
+        select: {
+          imageUrl: true,
+        },
+      },
+    },
+  });
+
+  return users.map((user, index) => ({
+    rank: index + 1,
+    username: user.username,
+    avatarUrl: user.avatarCharacter?.imageUrl ?? null,
+    contributionPoints: user.contributionPoints,
+  }));
+}
