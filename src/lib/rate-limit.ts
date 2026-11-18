@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { prisma } from "@/lib/db";
+import { prisma, type Db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 
 export type RateLimitRule = { limit: number; windowSeconds: number };
@@ -7,11 +7,13 @@ export type RateLimitRule = { limit: number; windowSeconds: number };
 export const RATE_LIMITS = {
   login: { limit: 15, windowSeconds: 10 * 60 },
   register: { limit: 15, windowSeconds: 10 * 60 },
+  registerGlobal: { limit: 100, windowSeconds: 4 * 60 * 60 },
   answer: { limit: 45, windowSeconds: 60 },
   gacha: { limit: 30, windowSeconds: 60 },
   claim: { limit: 15, windowSeconds: 60 },
   resendVerificationIp: { limit: 8, windowSeconds: 60 * 60 },
   resendVerificationEmail: { limit: 5, windowSeconds: 60 * 60 },
+  resendVerificationGlobal: { limit: 100, windowSeconds: 4 * 60 * 60 },
   forgotPasswordIp: {
     limit: process.env.NODE_ENV === "development" ? 100 : 5,
     windowSeconds: 60 * 60,
@@ -26,10 +28,17 @@ export const RATE_LIMITS = {
  * Fixed-window rate limiter berbasis PostgreSQL (atomic upsert). Tidak memerlukan Redis.
  * Melempar AppError RATE_LIMITED jika batas terlampaui.
  */
-export async function enforceRateLimit(bucket: string, identity: string, rule: RateLimitRule) {
+export async function enforceRateLimit(
+  bucket: string,
+  identity: string,
+  rule: RateLimitRule,
+  db: Db = prisma,
+) {
   if (process.env.DISABLE_RATE_LIMIT === "1" && process.env.NODE_ENV !== "production") return;
+
   const key = `${bucket}:${createHash("sha256").update(identity).digest("hex").slice(0, 32)}`;
-  const rows = await prisma.$queryRaw<{ count: number }[]>`
+
+  const rows = await db.$queryRaw<{ count: number }[]>`
     INSERT INTO "RateLimit" ("key", "count", "windowStart")
     VALUES (${key}, 1, NOW())
     ON CONFLICT ("key") DO UPDATE SET
@@ -38,7 +47,9 @@ export async function enforceRateLimit(bucket: string, identity: string, rule: R
       "windowStart" = CASE WHEN "RateLimit"."windowStart" < NOW() - make_interval(secs => ${rule.windowSeconds})
                      THEN NOW() ELSE "RateLimit"."windowStart" END
     RETURNING "count"`;
+
   const count = Number(rows[0]?.count ?? 0);
+
   if (count > rule.limit) {
     throw new AppError("RATE_LIMITED", "Terlalu banyak percobaan. Coba lagi beberapa saat lagi.");
   }

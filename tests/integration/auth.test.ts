@@ -18,6 +18,7 @@ import { createAdmin, ctx, registerStudent, req, resetDb, tokenFrom } from "./he
 import { randomBytes } from "node:crypto";
 import { hashToken } from "@/lib/auth/session";
 import { POST as verifyEmailRoute } from "@/app/api/auth/verify-email/route";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 beforeEach(resetDb);
 
@@ -258,5 +259,80 @@ describe("otorisasi admin", () => {
       ctx({ bannerId: "x" }),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("global authentication rate limits", () => {
+  it("membatasi registrasi global menjadi 100 percobaan per 4 jam", async () => {
+    for (let i = 0; i < 100; i++) {
+      await enforceRateLimit(
+        "register-global",
+        "global",
+        RATE_LIMITS.registerGlobal,
+      );
+    }
+
+    await expect(
+      enforceRateLimit(
+        "register-global",
+        "global",
+        RATE_LIMITS.registerGlobal,
+      ),
+    ).rejects.toThrow("Terlalu banyak percobaan");
+  });
+
+  it("membatasi resend verification global menjadi 100 percobaan per 4 jam", async () => {
+    for (let i = 0; i < 100; i++) {
+      await enforceRateLimit(
+        "resend-verification-global",
+        "global",
+        RATE_LIMITS.resendVerificationGlobal,
+      );
+    }
+
+    await expect(
+      enforceRateLimit(
+        "resend-verification-global",
+        "global",
+        RATE_LIMITS.resendVerificationGlobal,
+      ),
+    ).rejects.toThrow("Terlalu banyak percobaan");
+  });
+
+  it("mempertahankan batas resend per IP dan per email", async () => {
+    expect(RATE_LIMITS.resendVerificationIp.limit).toBe(8);
+    expect(RATE_LIMITS.resendVerificationEmail.limit).toBe(5);
+
+    for (let i = 0; i < 8; i++) {
+      await enforceRateLimit(
+        "resend-verification-ip",
+        "test-ip",
+        RATE_LIMITS.resendVerificationIp,
+      );
+    }
+
+    await expect(
+      enforceRateLimit(
+        "resend-verification-ip",
+        "test-ip",
+        RATE_LIMITS.resendVerificationIp,
+      ),
+    ).rejects.toThrow("Terlalu banyak percobaan");
+
+    for (let i = 0; i < 5; i++) {
+      await enforceRateLimit(
+        "resend-verification-email",
+        "test@example.com",
+        RATE_LIMITS.resendVerificationEmail,
+      );
+    }
+
+    await expect(
+      enforceRateLimit(
+        "resend-verification-email",
+        "test@example.com",
+        RATE_LIMITS.resendVerificationEmail,
+      ),
+    ).rejects.toThrow("Terlalu banyak percobaan");
   });
 });
