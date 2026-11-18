@@ -1,4 +1,5 @@
 import { prisma, transaction, isUniqueViolation } from "@/lib/db";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, hashToken } from "@/lib/auth/session";
@@ -18,6 +19,13 @@ export async function registerStudent(input: RegisterInput) {
 
   try {
     const user = await transaction(async (tx) => {
+      await enforceRateLimit(
+        "register-global",
+        "global",
+        RATE_LIMITS.registerGlobal,
+        tx,
+      );
+
       const created = await tx.user.create({
         data: {
           username: input.username,
@@ -218,6 +226,13 @@ export async function resendVerificationEmail(email: string) {
   const expiresAt = new Date(now.getTime() + 30 * 60 * 1000);
 
   await transaction(async (tx) => {
+    await enforceRateLimit(
+      "resend-verification-global",
+      "global",
+      RATE_LIMITS.resendVerificationGlobal,
+      tx,
+    );
+
     await tx.emailVerificationToken.updateMany({
       where: {
         userId: user.id,
